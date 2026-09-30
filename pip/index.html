@@ -8,21 +8,20 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
-    /* Layout: full-bleed isometric terrain map; name top-left, status card top-right, dark control dock bottom-centre.
-       Light only by design: the map is paper, sage and water; the accents are the walker's navy armour and blue glow. */
+    /* Layout: full-bleed 3D scene on an endless white floor; name top-left, status card top-right, dark control dock bottom-centre.
+       Light only by design: a white studio, with the walker's navy and blue as the only accents. */
     :root {
-      --paper: #ece7dc;
+      --paper: #fbfbfa;
       --card: rgba(255, 255, 255, 0.92);
-      --ink: #2a2c29;
-      --dim: #75746c;
-      --hair: rgba(42, 44, 41, 0.1);
+      --ink: #1f2124;
+      --dim: #7a7b7e;
+      --hair: rgba(31, 33, 36, 0.08);
       --accent: #2d5fb8;
       --accent-hi: #3a70cc;
-      --navy: #2f4169;
       --dock: #23262c;
       --dock-fg: #f1f0ec;
       --dock-dim: rgba(241, 240, 236, 0.45);
-      --shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 18px 44px rgba(42, 44, 41, 0.12);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 18px 44px rgba(31, 33, 36, 0.08);
       --sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
       --mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
       color-scheme: light;
@@ -40,7 +39,7 @@
     #top h1 em, #loader h1 em { color: var(--accent); font-style: normal; }
     #top p { margin-top: 10px; font-size: 15px; font-weight: 500; color: var(--dim); }
 
-    .card { background: var(--card); border: 1px solid var(--hair); border-radius: 18px; box-shadow: var(--shadow); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+    .card { background: var(--card); border: 1px solid var(--hair); border-radius: 18px; box-shadow: var(--shadow); }
     .kicker { font-size: 11.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
 
     #status { position: fixed; right: 40px; top: calc(36px + env(safe-area-inset-top, 0px)); width: 300px; padding: 16px 18px 15px; pointer-events: none; }
@@ -61,7 +60,7 @@
       position: fixed; left: 50%; bottom: calc(32px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
       display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px; padding: 8px;
       width: max-content; max-width: calc(100vw - 32px); background: var(--dock); border-radius: 22px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12), 0 20px 44px rgba(0, 0, 0, 0.22);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12), 0 20px 44px rgba(0, 0, 0, 0.2);
     }
     #dock .group { display: flex; align-items: center; gap: 4px; }
     #dock .sep { width: 1px; height: 30px; background: rgba(255, 255, 255, 0.14); margin: 0 8px; }
@@ -73,13 +72,10 @@
       transition: background 0.18s, color 0.18s;
     }
     .dbtn:hover { background: rgba(255, 255, 255, 0.09); }
-    .dbtn:active { background: rgba(255, 255, 255, 0.16); }
-    .dbtn svg { width: 16px; height: 16px; flex: none; }
-    .dbtn.icon { width: 52px; padding: 0; }
-    .dbtn.icon svg { width: 19px; height: 19px; }
-    .dbtn.flip svg { transform: scaleX(-1); }
+    .dbtn svg { width: 15px; height: 15px; flex: none; }
     .dbtn.play { background: var(--accent); color: #fff; padding: 0 22px 0 18px; }
     .dbtn.play:hover { background: var(--accent-hi); }
+    .dbtn.on { background: var(--dock-fg); color: var(--ink); }
     .dbtn kbd { margin-left: 2px; color: var(--dock-dim); border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 5px; padding: 1px 6px; }
 
     #loader { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: var(--paper); transition: opacity 0.8s ease; }
@@ -94,7 +90,6 @@
       #status { right: 24px; top: calc(22px + env(safe-area-inset-top, 0px)); width: 270px; padding: 13px 15px; }
       #doing { font-size: 22px; }
       .dbtn { height: 46px; padding: 0 14px; font-size: 15px; }
-      .dbtn.icon { width: 46px; }
       .dbtn kbd { display: none; }
     }
     @media (max-width: 720px) {
@@ -109,9 +104,8 @@
       .stats span { font-size: 10.5px; margin-top: 3px; }
       #dock { bottom: calc(14px + env(safe-area-inset-bottom, 0px)); padding: 5px; gap: 2px; border-radius: 16px; }
       #dock .glabel, #dock .sep { display: none; }
-      .dbtn { height: 42px; padding: 0 11px; font-size: 14px; gap: 6px; border-radius: 11px; }
-      .dbtn.icon { width: 42px; }
-      .dbtn.play { padding: 0 13px; }
+      .dbtn { height: 42px; padding: 0 8px; font-size: 13px; gap: 6px; border-radius: 11px; }
+      .dbtn.play { padding: 0 12px; }
       .dbtn.play span { display: none; }
       #hint { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); font-size: 12.5px; }
     }
@@ -121,9 +115,9 @@
   </script>
 </head>
 <body>
-  <canvas id="world" aria-label="Pip, an armoured two-legged walker with three companion drones, crossing a terrain map"></canvas>
+  <canvas id="world" aria-label="Pip, an armoured two-legged walker with three companion drones, walking across an endless white floor"></canvas>
 
-  <header id="top"><h1>Pip<em>.</em></h1><p>A little walker and its three drones, out on patrol.</p></header>
+  <header id="top"><h1>Pip<em>.</em></h1><p>A little walker and its three drones.</p></header>
 
   <aside id="status" class="card" aria-live="polite">
     <div class="kicker">Now</div>
@@ -131,21 +125,21 @@
     <div class="stats">
       <div><b id="st-steps">0</b><span>steps</span></div>
       <div><b id="st-dist">0.0</b><span>meters</span></div>
-      <div><b id="st-grid">0E 0N</b><span>map square</span></div>
+      <div><b id="st-time">0:00</b><span>on patrol</span></div>
     </div>
   </aside>
 
-  <div id="hint"><b id="hint-verb">Click</b> the terrain to send Pip somewhere</div>
+  <div id="hint"><b id="hint-verb">Click</b> the floor to send Pip somewhere</div>
 
   <nav id="dock" aria-label="Controls">
     <button id="btn-play" class="dbtn play" type="button"></button>
     <span class="sep"></span>
-    <div class="group" role="group" aria-label="View">
-      <span class="glabel">View</span>
-      <button id="rot-l" class="dbtn icon" type="button" aria-label="Rotate view left" title="Rotate left (Q)"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.2 7.6A6 6 0 1 1 4.4 12" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M4.2 3.6v4.3h4.3" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <button id="rot-r" class="dbtn icon flip" type="button" aria-label="Rotate view right" title="Rotate right (E)"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.2 7.6A6 6 0 1 1 4.4 12" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M4.2 3.6v4.3h4.3" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <button id="zoom-out" class="dbtn icon" type="button" aria-label="Zoom out" title="Zoom out (−)"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10h11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
-      <button id="zoom-in" class="dbtn icon" type="button" aria-label="Zoom in" title="Zoom in (+)"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10h11M10 4.5v11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    <div class="group" role="group" aria-label="Camera">
+      <span class="glabel">Camera</span>
+      <button data-cam="auto" class="dbtn on" type="button">Auto</button>
+      <button data-cam="follow" class="dbtn" type="button">Follow</button>
+      <button data-cam="front" class="dbtn" type="button">Front</button>
+      <button data-cam="side" class="dbtn" type="button">Side</button>
     </div>
     <span class="sep"></span>
     <button id="btn-hi" class="dbtn" type="button">Say hi<kbd>W</kbd></button>
@@ -157,23 +151,16 @@
     import * as THREE from 'three';
     import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
     import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-    import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
     const $ = (s) => document.querySelector(s);
     const TAU = Math.PI * 2;
     const UP = new THREE.Vector3(0, 1, 0);
-    const XAX = new THREE.Vector3(1, 0, 0);
 
-    // ---------------------------------------------------------------- map look
-    const BG = new THREE.Color('#ece7dc');
-    const INK = new THREE.Color('#2a2c29');
+    // ---------------------------------------------------------------- look: a white studio that never ends
+    const WHITE = new THREE.Color('#fbfbfa');       // floor and background are the same colour, so there is no horizon
+    const INK = new THREE.Color('#1f2124');
     const ACCENT = new THREE.Color('#2d5fb8');
     const GLOW = new THREE.Color('#4cc8ff');
-    const LAND = { deep: '#5d8886', sand: '#e6d5ae', low: '#bccb98', mid: '#9fb47b', high: '#869d67', stone: '#d2c9b2', water: '#86afad' };
-    const WATER = -0.3;            // lake level
-    const GRID = 2;                // one map square (world units); a cross marks every corner
-    const CAM_DIST = 40, CAM_EL = 0.6, VIEW_H = 3.6;
-    const FOG_NEAR = 9, FOG_FAR = 15;
 
     // ---------------------------------------------------------------- the walker's body plan (world units; it stands ~1.2 tall)
     const WALK_V = 0.42, HURRY_V = 0.6;
@@ -181,59 +168,21 @@
     const STANCE_W = 0.27, HIP_X = 0.3;
     const PELVIS = 0.56, ANKLE_H = 0.1, TOE = 0.19, HEEL = 0.11;
     const L1 = 0.26, L2 = 0.27;
-    const BODY_R = 0.5;
     const SX = 0.46, SY = 0.33, SZ = 0.4, CY = 0.33, CZ = 0.02;   // egg-shaped hull: semi-axes and centre (body frame)
     const EYE_Y = 0.34;
-    const M_PER_UNIT = 1;
-
-    // Radial haze around the camera target (instead of depth fog) so the map fades out like a vignette.
-    THREE.ShaderChunk.fog_vertex = `#ifdef USE_FOG
-      vec4 fogW = vec4(transformed, 1.0);
-      #ifdef USE_INSTANCING
-        fogW = instanceMatrix * fogW;
-      #endif
-      fogW = modelMatrix * fogW;
-      vec3 fogFwd = -vec3(viewMatrix[0][2], viewMatrix[1][2], viewMatrix[2][2]);
-      vFogDepth = length(fogW.xz - (cameraPosition + fogFwd * ${CAM_DIST.toFixed(1)}).xz);
-    #endif`;
 
     const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
     const damp = (k, dt) => 1 - Math.exp(-k * dt);
     const wrap = (a) => { a = (a + Math.PI) % TAU; if (a < 0) a += TAU; return a - Math.PI; };
     const angTo = (from, to) => wrap(to - from);
     const hump = (t, a, b) => (t <= a || t >= b ? 0 : Math.sin((Math.PI * (t - a)) / (b - a)));
-    function ihash(i, j, k) {
-      let h = Math.imul(i | 0, 0x27d4eb2d) ^ Math.imul(j | 0, 0x165667b1) ^ Math.imul(k | 0, 0x9e3779b1);
-      h = Math.imul(h ^ (h >>> 15), 0x85ebca6b); h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
-      return (h ^ (h >>> 16)) >>> 0;
-    }
-    const hash = (i, j, k) => ihash(i, j, k) / 4294967296;
     const Spring = (x = 0) => ({ x, v: 0 });
     function spring(s, target, dt, k = 60, c = 11) { s.v += ((target - s.x) * k - s.v * c) * dt; s.x += s.v * dt; return s.x; }
 
-    // ---------------------------------------------------------------- terrain height field (Perlin fbm, deterministic)
-    const GX = new Float32Array(256), GZ = new Float32Array(256);
-    for (let i = 0; i < 256; i++) { GX[i] = Math.cos((i / 256) * TAU); GZ[i] = Math.sin((i / 256) * TAU); }
-    function perlin(x, z) {
-      const x0 = Math.floor(x), z0 = Math.floor(z), fx = x - x0, fz = z - z0;
-      const u = fx * fx * fx * (fx * (fx * 6 - 15) + 10), v = fz * fz * fz * (fz * (fz * 6 - 15) + 10);
-      let k = ihash(x0, z0, 7) & 255; const a = GX[k] * fx + GZ[k] * fz;
-      k = ihash(x0 + 1, z0, 7) & 255; const b = GX[k] * (fx - 1) + GZ[k] * fz;
-      k = ihash(x0, z0 + 1, 7) & 255; const c = GX[k] * fx + GZ[k] * (fz - 1);
-      k = ihash(x0 + 1, z0 + 1, 7) & 255; const d = GX[k] * (fx - 1) + GZ[k] * (fz - 1);
-      return (a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v) * 1.41;
-    }
-    function height(x, z) {
-      return 0.66 * perlin(x / 9.5 + 17.3, z / 9.5 - 4.1) + 0.26 * perlin(x / 4.1 - 9.2, z / 4.1 + 2.7) + 0.06 * perlin(x / 1.7 + 3.3, z / 1.7 + 8.8);
-    }
-    function normalAt(x, z, out) { const e = 0.06; return out.set(height(x - e, z) - height(x + e, z), 2 * e, height(x, z - e) - height(x, z + e)).normalize(); }
-    const dry = (x, z, m = 0.05) => height(x, z) > WATER + m;
-    const forestAt = (x, z) => perlin(x / 7 + 50.5, z / 7 - 30.5);
-
     // ---------------------------------------------------------------- materials (armour white, navy trim, dark mechanics, blue glow)
     const MAT = {
-      armor: new THREE.MeshPhysicalMaterial({ color: 0xe6e5e1, roughness: 0.46, clearcoat: 0.35, clearcoatRoughness: 0.3 }),
-      navy: new THREE.MeshPhysicalMaterial({ color: 0x2f4169, roughness: 0.42, clearcoat: 0.3, clearcoatRoughness: 0.25 }),
+      armor: new THREE.MeshPhysicalMaterial({ color: 0xe8e7e3, roughness: 0.46, clearcoat: 0.35, clearcoatRoughness: 0.3 }),
+      navy: new THREE.MeshPhysicalMaterial({ color: 0x2f4169, roughness: 0.5, clearcoat: 0.15, clearcoatRoughness: 0.35 }),
       mech: new THREE.MeshStandardMaterial({ color: 0x2b2c30, roughness: 0.5, metalness: 0.45 }),
       mech2: new THREE.MeshStandardMaterial({ color: 0x3e4046, roughness: 0.38, metalness: 0.55 }),
       steel: new THREE.MeshStandardMaterial({ color: 0xa9abb0, roughness: 0.22, metalness: 1 }),
@@ -241,8 +190,6 @@
       glow: new THREE.MeshBasicMaterial({ color: GLOW, toneMapped: false }),
       glowHot: new THREE.MeshBasicMaterial({ color: 0xc9f3ff, toneMapped: false }),
       glowDim: new THREE.MeshBasicMaterial({ color: 0x2a6178, toneMapped: false }),
-      prop: new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85 }),
-      propGhost: new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85, transparent: true, opacity: 0.28, depthWrite: false }),
     };
     MAT.crest = MAT.navy.clone(); MAT.crest.side = THREE.DoubleSide;
     // hull: the armour material with panel seams and panel shading drawn in object space
@@ -275,8 +222,6 @@
     const sphere = (r, mat, parent, seg = 32) => mesh(new THREE.SphereGeometry(r, seg, Math.round(seg * 0.66)), mat, parent);
     const axle = (r, h, mat, parent, seg = 24) => mesh(new THREE.CylinderGeometry(r, r, h, seg), mat, parent);
     const dome = (r) => new THREE.SphereGeometry(r, 40, 12, 0, TAU, 0, Math.PI / 2).rotateX(Math.PI / 2);   // cap facing +z
-    const _d = new THREE.Vector3();
-    function orient(m, axis) { m.quaternion.setFromUnitVectors(UP, _d.copy(axis).normalize()); }
     // Object from a to b along its +Y, with +Z turned toward `fwd` (keeps armour facing forward).
     const _ay = new THREE.Vector3(), _az = new THREE.Vector3(), _ax = new THREE.Vector3(), _am = new THREE.Matrix4();
     function aimBasis(o, a, b, fwd) {
@@ -286,15 +231,8 @@
       o.position.copy(a);
       o.quaternion.setFromRotationMatrix(_am.makeBasis(_ax, _ay, _az));
     }
-    // Orientation of something standing on the ground: yaw about the terrain normal n.
-    const _bx = new THREE.Vector3(), _bz = new THREE.Vector3(), _bm = new THREE.Matrix4();
-    function groundQuat(q, n, yaw) {
-      _bz.set(Math.sin(yaw), 0, Math.cos(yaw)); _bz.addScaledVector(n, -_bz.dot(n)).normalize();
-      _bx.crossVectors(n, _bz);
-      return q.setFromRotationMatrix(_bm.makeBasis(_bx, n, _bz));
-    }
 
-    // Front of the hull, and flat 2D plates bent onto it (their undersides sink into the hull so no gap shows).
+    // Front of the hull, and flat 2D plates bent onto it along its normal (their undersides sink in so no gap shows).
     function hullZ(x, y) { return CZ + SZ * Math.sqrt(Math.max(0, 1 - (x / SX) ** 2 - ((y - CY) / SY) ** 2)); }
     const V2 = (p) => new THREE.Vector2(p[0], p[1]);
     function densify(pts, n) {
@@ -312,31 +250,32 @@
         const x = p.getX(i), y = p.getY(i), z = p.getZ(i), hz = hullZ(x, y), off = z < 1e-5 ? -0.015 : lift + z;
         _hn.set(x / (SX * SX), (y - CY) / (SY * SY), (hz - CZ) / (SZ * SZ)).normalize();
         p.setXYZ(i, x + _hn.x * off, y + _hn.y * off, hz + _hn.z * off);
+        g.attributes.normal.setXYZ(i, _hn.x, _hn.y, _hn.z);
       }
-      g.computeVertexNormals();
       return mesh(g, mat, parent);
     }
     // Point on the hull in direction (nx, ny, nz) of its unit sphere, in body coordinates.
     function hullPoint(nx, ny, nz) { const l = Math.hypot(nx, ny, nz); return new THREE.Vector3((SX * nx) / l, CY + (SY * ny) / l, CZ + (SZ * nz) / l); }
 
-    const glowTex = (() => {
+    function radialTexture(stops) {
       const c = document.createElement('canvas'); c.width = c.height = 64;
       const g = c.getContext('2d'), grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-      grad.addColorStop(0, 'rgba(255,255,255,1)'); grad.addColorStop(0.3, 'rgba(255,255,255,0.45)'); grad.addColorStop(1, 'rgba(255,255,255,0)');
+      for (const [o, col] of stops) grad.addColorStop(o, col);
       g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
       return new THREE.CanvasTexture(c);
-    })();
+    }
+    const glowTex = radialTexture([[0, 'rgba(255,255,255,1)'], [0.3, 'rgba(255,255,255,0.45)'], [1, 'rgba(255,255,255,0)']]);
     function glowSprite(size, opacity = 0.75) {
-      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: GLOW, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false }));
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: GLOW, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
       s.scale.setScalar(size);
       return s;
     }
 
     // ================================================================ THE WALKER
     // Egg-shaped armoured hull with one blue eye, side sensor pods, big hip drums; legs with armoured shins
-    // and wheeled boots. Feet are stepped in world space onto the terrain; legs are two-bone IK, knees forward.
+    // and wheeled boots. Feet are stepped in world space and stay planted; legs are two-bone IK, knees forward.
     class Walker {
-      constructor(scene, x, z) {
+      constructor(scene) {
         this.scene = scene;
         this.root = new THREE.Group();
         this.body = new THREE.Group();
@@ -347,25 +286,20 @@
         this.strips = [];
         this.buildHull(); this.buildEye(); this.buildLegs();
 
-        this.x = x; this.z = z; this.h = 0; this.v = 0; this.w = 0; this.accel = 0; this.slope = 0;
-        this.gy = height(x, z); this.crouch = 0;
+        this.x = 0; this.z = 0; this.h = 0; this.v = 0; this.w = 0; this.accel = 0; this.crouch = 0;
         this.t = 0; this.dist = 0; this.steps = 0; this.lean = 0; this.thump = 0; this.flash = 0; this.dip = 0;
-        this.feet = [1, -1].map((side) => {
-          const px = x + side * STANCE_W, pz = z;
-          return {
-            side, pos: new THREE.Vector3(px, height(px, pz), pz), n: normalAt(px, pz, new THREE.Vector3()), yaw: 0,
-            swing: false, u: 0, T: T_SWING, from: new THREE.Vector3(), fromN: new THREE.Vector3(), fromYaw: 0, travel: 0, lift: 0, pitch: 0,
-          };
-        });
+        this.feet = [1, -1].map((side) => ({
+          side, pos: new THREE.Vector3(side * STANCE_W, 0, 0), yaw: 0,
+          swing: false, u: 0, T: T_SWING, from: new THREE.Vector3(), fromYaw: 0, travel: 0, lift: 0, pitch: 0,
+        }));
         this.next = 0; this.sinceLand = 1;
         this.look = { x: Spring(), y: Spring() };
         this.blink = { next: 1.2, t: -1, dur: 0.18 };
         this.happy = Spring(0); this.open = Spring(1); this.wide = Spring(0); this.bright = Spring(1);
         this.saccade = { t: 0, x: 0, y: 0 }; this.lastLook = 0;
         this.onStep = () => {};
-        this.collide = () => {};
         const V = () => new THREE.Vector3();
-        Object.assign(this, { _t: V(), _a: V(), _h: V(), _k: V(), _e: V(), _p: V(), _f: V(), _l: V(), _nt: V(), _qp: new THREE.Quaternion() });
+        Object.assign(this, { _t: V(), _a: V(), _h: V(), _k: V(), _e: V(), _p: V(), _f: V(), _l: V() });
       }
 
       buildHull() {
@@ -448,7 +382,7 @@
           rbox(0.21, 0.27, 0.21, 0.04, MAT.armor, shin).position.set(0, L2 * 0.44, 0.02);
           const kp = rbox(0.165, 0.2, 0.045, 0.016, MAT.navy, shin); kp.position.set(0, L2 * 0.32, 0.125); kp.rotation.x = -0.14;
           const ankle = axle(0.05, 0.17, MAT.mech, shin, 18); ankle.rotation.z = Math.PI / 2; ankle.position.y = L2;
-          const foot = new THREE.Group(); S.add(foot);                       // at the ankle; +Y along the ground normal
+          const foot = new THREE.Group(); foot.rotation.order = 'YXZ'; S.add(foot);   // at the ankle
           const aj = axle(0.045, 0.15, MAT.mech2, foot, 18); aj.rotation.z = Math.PI / 2;
           rbox(0.19, 0.085, 0.3, 0.03, MAT.armor, foot).position.set(0, -0.055, 0.04);
           rbox(0.196, 0.014, 0.304, 0.006, MAT.mech, foot).position.set(0, -0.094, 0.04);
@@ -462,12 +396,11 @@
         });
       }
 
-      // Where a foot should land if it lifts now: ahead of where the body will be, on the ground there.
+      // Where a foot should land if it lifts now: ahead of where the body will be.
       target(f, lead, out) {
         const hm = this.h + this.w * lead * 0.5, hp = this.h + this.w * lead;
         const px = this.x + Math.sin(hm) * this.v * lead, pz = this.z + Math.cos(hm) * this.v * lead;
         out.set(px + Math.cos(hp) * f.side * STANCE_W, 0, pz - Math.sin(hp) * f.side * STANCE_W);
-        out.y = height(out.x, out.z);
         return hp;
       }
 
@@ -483,7 +416,7 @@
             const err = Math.hypot(t.x - f.pos.x, t.z - f.pos.z), yerr = Math.abs(angTo(f.yaw, yawT));
             if ((moving && f === a) || err > 0.04 || yerr > 0.18) {
               Object.assign(f, { swing: true, u: 0, T, fromYaw: f.yaw, travel: err });
-              f.from.copy(f.pos); f.fromN.copy(f.n);
+              f.from.copy(f.pos);
               this.next = this.feet.indexOf(f) ^ 1;
               break;
             }
@@ -495,10 +428,8 @@
           const yawT = this.target(f, (1 - f.u) * f.T + 0.5 * f.T + 0.01, t);
           const e = f.u * f.u * (3 - 2 * f.u);
           f.pos.lerpVectors(f.from, t, e);
-          f.n.lerpVectors(f.fromN, normalAt(t.x, t.z, this._nt), e).normalize();
           f.yaw = f.fromYaw + angTo(f.fromYaw, yawT) * e;
-          const arc = Math.sin(Math.PI * Math.pow(f.u, 0.8));
-          f.lift = (LIFT * clamp(f.travel / 0.12, 0.3, 1) + Math.max(0, t.y - f.from.y) * 0.6) * arc;
+          f.lift = LIFT * clamp(f.travel / 0.12, 0.3, 1) * Math.sin(Math.PI * Math.pow(f.u, 0.8));
           f.pitch = 0.26 * Math.sin(TAU * f.u) * clamp(f.travel / 0.16, 0, 1);
           if (f.u >= 1) {
             Object.assign(f, { swing: false, lift: 0, pitch: 0 });
@@ -508,28 +439,22 @@
         }
       }
 
-      // Ankle in world space, raised along the ground normal so a pitched toe or heel never sinks in.
+      // Ankle in world space, raised so a pitched toe or heel never sinks into the floor.
       ankle(f, out) {
         const c = Math.cos(f.pitch), s = Math.sin(f.pitch);
         const low = Math.min(-ANKLE_H * c - TOE * s, -ANKLE_H * c + HEEL * s);
-        return out.copy(f.pos).addScaledVector(f.n, Math.max(f.lift + ANKLE_H, -low));
+        return out.set(f.pos.x, Math.max(f.lift + ANKLE_H, -low), f.pos.z);
       }
 
       // c: { vt, wt, look, happy, wide, sleepy, crouch, blink }
       update(dt, c) {
         this.t += dt;
         const px = this.x, pz = this.z, vPrev = this.v;
-        const fx = Math.sin(this.h), fz = Math.cos(this.h);
-        const slope = (height(this.x + fx * 0.35, this.z + fz * 0.35) - height(this.x - fx * 0.35, this.z - fz * 0.35)) / 0.7;
-        this.slope += (slope - this.slope) * damp(4, dt);
-        const vt = c.vt * (1 - clamp(this.slope * 0.9, -0.15, 0.4));      // slower uphill
-        this.v += (vt - this.v) * damp(vt > this.v ? 2.2 : 3.5, dt);
+        this.v += (c.vt - this.v) * damp(c.vt > this.v ? 2.2 : 3.5, dt);
         this.w += (c.wt - this.w) * damp(4.5, dt);
         this.h = wrap(this.h + this.w * dt);
         this.x += Math.sin(this.h) * this.v * dt;
         this.z += Math.cos(this.h) * this.v * dt;
-        if (!dry(this.x, this.z, 0.02)) { this.x = px; this.z = pz; }       // it does not swim
-        this.collide(this);
         this.accel += ((this.v - vPrev) / Math.max(dt, 1e-3) - this.accel) * damp(8, dt);
         this.dist += Math.hypot(this.x - px, this.z - pz);
         this.crouch += ((c.crouch || 0) - this.crouch) * damp(8, dt);
@@ -548,13 +473,11 @@
         }
         this.thump = Math.max(0, this.thump - dt * 6);
         this.dip = hump(1 - this.thump, 0, 1);
-        const ground = 0.5 * height(this.x, this.z) + 0.25 * (this.feet[0].pos.y + this.feet[1].pos.y);
-        this.gy += (ground - this.gy) * damp(9, dt);
         this.lean += (clamp(0.04 * this.v / WALK_V + this.accel * 0.05, -0.08, 0.1) - this.lean) * damp(4, dt);
         this.root.position.set(this.x, 0, this.z);
         this.root.rotation.y = this.h;
         const B = this.body;
-        B.position.set(sway * 0.028, this.gy + PELVIS + bob * 0.026 - this.dip * 0.022 - this.crouch * 0.16 + Math.sin(this.t * 1.8) * 0.004, 0);
+        B.position.set(sway * 0.028, PELVIS + bob * 0.026 - this.dip * 0.022 - this.crouch * 0.16 + Math.sin(this.t * 1.8) * 0.004, 0);
         B.rotation.set(this.lean, twist * 0.035, -sway * 0.045);
         this.shell.scale.set(1 + this.dip * 0.015, 1 - this.dip * 0.03, 1 + this.dip * 0.015);
         this.flash = Math.max(0, this.flash - dt * 4);
@@ -586,7 +509,7 @@
           aimBasis(L.thigh, H, K, fwd);
           aimBasis(L.shin, K, end, fwd);
           L.foot.position.copy(A);
-          groundQuat(L.foot.quaternion, f.n, f.yaw).multiply(this._qp.setFromAxisAngle(XAX, f.pitch));
+          L.foot.rotation.set(f.pitch, f.yaw, 0);
         });
       }
 
@@ -595,7 +518,7 @@
         if (c.look) {
           const dx = c.look.x - this.x, dz = c.look.z - this.z;
           lx = clamp(angTo(this.h, Math.atan2(dx, dz)) / 1.1, -1, 1);
-          ly = clamp(Math.atan2(c.look.y - (this.gy + PELVIS + EYE_Y), Math.hypot(dx, dz)) / 0.6, -1, 1);
+          ly = clamp(Math.atan2(c.look.y - (PELVIS + EYE_Y), Math.hypot(dx, dz)) / 0.6, -1, 1);
         }
         const bl = this.blink;
         if ((c.blink || Math.abs(lx - this.lastLook) > 0.6) && bl.t < 0) bl.next = 0;     // big glances come with a blink
@@ -615,7 +538,7 @@
         this.eye.rotation.set(-ey * 0.22, ex * 0.32, 0);       // the whole lens barrel turns to look
         const hap = spring(this.happy, c.happy ? 1 : 0, dt, 60, 12);
         const wide = spring(this.wide, c.wide ? 1 : 0, dt, 60, 10);
-        const open = spring(this.open, c.sleepy ? 0.1 : this.slope > 0.16 && this.v > 0.1 ? 0.7 : 1, dt, 40, 10);
+        const open = spring(this.open, c.sleepy ? 0.1 : 1, dt, 40, 10);
         const bright = spring(this.bright, c.sleepy ? 0.25 : 1, dt, 30, 10);
         this.eyeGlow.material.opacity = 0.45 * bright * (1 - close * 0.8);
         this.drawEye(ex, ey, Math.max(0.06, open * (1 - close * 0.95)), hap, wide, bright);
@@ -661,7 +584,6 @@
         mesh(new THREE.TorusGeometry(0.056, 0.009, 8, 36), MAT.navy, eye).position.z = 0.036;
         const lens = mesh(dome(0.048), MAT.glass, eye); lens.scale.z = 0.4; lens.position.z = 0.034;
         this.iris = new THREE.Mesh(new THREE.CircleGeometry(0.024, 28), MAT.glow.clone());
-        this.iris.material.toneMapped = false;
         this.iris.position.z = 0.055;
         eye.add(this.iris);
         this.glow = glowSprite(0.2, 0.6); this.glow.position.z = 0.065; eye.add(this.glow);
@@ -678,7 +600,7 @@
         });
         this.pos = new THREE.Vector3(); this.vel = new THREE.Vector3(); this.yaw = 0; this.spin = 10;
         this.blink = 0; this.nextBlink = 1 + Math.random() * 3; this.phase = Math.random() * TAU; this.roll = 0;
-        this.blob = blob(0.42, 0.45);
+        this.blob = blob(0.42, 0.4);
       }
 
       // target: where to hover, look: what to face, mood: { landed, happy, roll }
@@ -688,8 +610,7 @@
         this.vel.y += ((target.y - this.pos.y) * k - this.vel.y * c) * dt;
         this.vel.z += ((target.z - this.pos.z) * k - this.vel.z * c) * dt;
         this.pos.addScaledVector(this.vel, dt);
-        const floor = height(this.pos.x, this.pos.z) + 0.145;
-        if (this.pos.y < floor) { this.pos.y = floor; this.vel.y = Math.max(0, this.vel.y); }
+        if (this.pos.y < 0.145) { this.pos.y = 0.145; this.vel.y = Math.max(0, this.vel.y); }
         const hover = mood.landed ? 0 : Math.sin(pip.t * 2.2 + this.phase) * 0.025;
         this.g.position.set(this.pos.x, this.pos.y + hover, this.pos.z);
         const want = Math.atan2(look.x - this.pos.x, look.z - this.pos.z);
@@ -708,14 +629,14 @@
         this.iris.scale.set(mood.happy ? 1.2 : 1, (this.blink > 0 ? 0.15 : 1) * (mood.happy ? 0.55 : 1), 1);
         this.iris.material.color.copy(GLOW).multiplyScalar(0.35 + 0.65 * lit);
         this.glow.material.opacity = 0.6 * lit;
-        const gy = height(this.pos.x, this.pos.z), alt = this.pos.y - gy;
-        this.blob.position.set(this.pos.x, gy + 0.01, this.pos.z);
-        this.blob.scale.setScalar(0.22 + alt * 0.12);
-        this.blob.material.opacity = 0.5 / (1 + alt * 1.5);
+        const alt = this.pos.y;
+        this.blob.position.set(this.pos.x, 0.001, this.pos.z);
+        this.blob.scale.setScalar(0.24 + alt * 0.12);
+        this.blob.material.opacity = 0.4 / (1 + alt * 1.5);
       }
     }
 
-    // ================================================================ scene
+    // ================================================================ scene: endless white floor, soft studio light
     const canvas = $('#world');
     const coarse = matchMedia('(pointer: coarse)').matches;
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
@@ -725,205 +646,35 @@
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     const scene = new THREE.Scene();
-    scene.background = BG.clone();
-    scene.fog = new THREE.Fog(BG.clone(), FOG_NEAR, FOG_FAR);
+    scene.background = WHITE.clone();
     scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
-    scene.environmentIntensity = 0.32;
-    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 120);
+    scene.environmentIntensity = 0.6;
+    const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 300);
 
-    scene.add(new THREE.HemisphereLight(0xf4f1ea, 0xa9ab98, 0.85));
-    const key = new THREE.DirectionalLight(0xfff1de, 1.9);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xdedcd6, 1.3));
+    const key = new THREE.DirectionalLight(0xfff4e8, 2.2);
     key.castShadow = true;
     key.shadow.mapSize.setScalar(coarse ? 2048 : 4096);
-    Object.assign(key.shadow.camera, { left: -15, right: 15, top: 15, bottom: -15, near: 0.5, far: 50 });
+    Object.assign(key.shadow.camera, { left: -4.5, right: 4.5, top: 4.5, bottom: -4.5, near: 0.5, far: 20 });
     key.shadow.camera.updateProjectionMatrix();
-    key.shadow.bias = -0.0006; key.shadow.normalBias = 0.03;
+    key.shadow.bias = -0.0005; key.shadow.normalBias = 0.02;
     scene.add(key, key.target);
-    const KEY_OFF = new THREE.Vector3(-7, 14, 9);
 
-    // shared map marks: square boundaries with a cross at every corner
-    const U = {
-      uInk: { value: INK.clone() }, uTime: { value: 0 },
-      uDeep: { value: new THREE.Color(LAND.deep) }, uSand: { value: new THREE.Color(LAND.sand) }, uLow: { value: new THREE.Color(LAND.low) },
-      uMid: { value: new THREE.Color(LAND.mid) }, uHigh: { value: new THREE.Color(LAND.high) }, uStone: { value: new THREE.Color(LAND.stone) },
-    };
-    const MARKS = /* glsl */`
-      uniform vec3 uInk; uniform float uTime;
-      varying vec3 vW;
-      float mapMarks(vec2 p, out float cross) {
-        vec2 fw = max(fwidth(p), vec2(1e-4));
-        vec2 g = abs(fract(p / ${GRID.toFixed(1)} + 0.5) - 0.5) * ${GRID.toFixed(1)};
-        float lx = 1.0 - smoothstep(0.005, 0.005 + fw.x, g.x);
-        float lz = 1.0 - smoothstep(0.005, 0.005 + fw.y, g.y);
-        float arm = 0.2, t = 0.016;
-        cross = max((1.0 - smoothstep(t, t + fw.x, g.x)) * (1.0 - smoothstep(arm, arm + fw.y, g.y)),
-                    (1.0 - smoothstep(t, t + fw.y, g.y)) * (1.0 - smoothstep(arm, arm + fw.x, g.x)));
-        return max(lx, lz);
-      }`;
-    function worldVarying(sh) {
-      Object.assign(sh.uniforms, U);
-      sh.vertexShader = sh.vertexShader
-        .replace('#include <common>', '#include <common>\nvarying vec3 vW;\nvarying vec3 vWN;')
-        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvW = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvWN = normalize(mat3(modelMatrix) * objectNormal);');
-    }
+    // the floor is the background colour, unlit, so it runs to infinity with no horizon; shadows land on a sheet above it
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(600, 600).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: WHITE, toneMapped: false }));
+    scene.add(floor);
+    const shadowFloor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40).rotateX(-Math.PI / 2), new THREE.ShadowMaterial({ opacity: 0.13 }));
+    shadowFloor.position.y = 0.0005; shadowFloor.receiveShadow = true;
+    scene.add(shadowFloor);
 
-    // terrain: hypsometric tint, contour lines every 0.1 (index every 0.5), map marks on land
-    const terrainMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.94 });
-    terrainMat.onBeforeCompile = (sh) => {
-      worldVarying(sh);
-      sh.fragmentShader = sh.fragmentShader
-        .replace('#include <common>', `#include <common>
-          uniform vec3 uDeep, uSand, uLow, uMid, uHigh, uStone;
-          varying vec3 vWN;
-          ${MARKS}
-          vec3 terrainColor() {
-            float h = vW.y, slope = 1.0 - vWN.y, W = ${WATER.toFixed(3)};
-            vec3 col = mix(uLow, uMid, smoothstep(-0.15, 0.2, h));
-            col = mix(col, uHigh, smoothstep(0.2, 0.55, h));
-            col = mix(col, uStone, clamp(smoothstep(0.08, 0.22, slope) * 0.45 + smoothstep(0.62, 0.85, h), 0.0, 1.0));
-            col = mix(col, uSand, 1.0 - smoothstep(W + 0.03, W + 0.1, h));
-            col = mix(col, uDeep, smoothstep(W, W - 0.35, h));
-            float c = h / 0.1, fc = max(fwidth(c), 1e-4);
-            float dc = abs(fract(c + 0.5) - 0.5);
-            float line = 1.0 - smoothstep(0.3 * fc, 1.2 * fc, dc);
-            float idx = 1.0 - step(0.5, mod(floor(c + 0.5), 5.0));
-            float land = step(W, h);
-            col = mix(col, uInk, line * mix(0.04, mix(0.1, 0.24, idx), land));
-            float cross; float lines = mapMarks(vW.xz, cross);
-            col = mix(col, uInk, lines * 0.2 * land);
-            col = mix(col, uInk, cross * 0.62 * land);
-            return col;
-          }`)
-        .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb = terrainColor();');
-    };
-    const T_SIZE = 48, T_SEG = 160;
-    const tgeo = new THREE.PlaneGeometry(T_SIZE, T_SIZE, T_SEG, T_SEG);
-    tgeo.rotateX(-Math.PI / 2);
-    const tbase = Float32Array.from(tgeo.attributes.position.array);
-    const terrain = new THREE.Mesh(tgeo, terrainMat);
-    terrain.receiveShadow = true; terrain.castShadow = true;
-    scene.add(terrain);
-
-    // lakes: a translucent sheet at water level, with the same grid and slow ripples
-    const waterMat = new THREE.MeshStandardMaterial({ color: LAND.water, roughness: 0.14, metalness: 0, transparent: true, opacity: 0.8 });
-    waterMat.onBeforeCompile = (sh) => {
-      worldVarying(sh);
-      sh.fragmentShader = sh.fragmentShader
-        .replace('#include <common>', `#include <common>\nvarying vec3 vWN;\n${MARKS}`)
-        .replace('#include <color_fragment>', `#include <color_fragment>
-          float r = sin(vW.x * 3.1 + uTime * 0.8 + sin(vW.z * 1.3)) * sin(vW.z * 2.6 - uTime * 0.6);
-          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0), smoothstep(0.9, 0.99, r) * 0.22);
-          float cross; float lines = mapMarks(vW.xz, cross);
-          diffuseColor.rgb = mix(diffuseColor.rgb, uInk, lines * 0.16 + cross * 0.5);`);
-    };
-    const water = new THREE.Mesh(new THREE.PlaneGeometry(T_SIZE, T_SIZE, 96, 96).rotateX(-Math.PI / 2), waterMat);
-    water.receiveShadow = true;
-    scene.add(water);
-
-    let tcx = NaN, tcz = NaN;
-    function recenterTerrain(x, z) {
-      const cx = Math.round(x / 4) * 4, cz = Math.round(z / 4) * 4;
-      if (cx === tcx && cz === tcz) return;
-      tcx = cx; tcz = cz;
-      const p = tgeo.attributes.position.array;
-      for (let i = 0; i < p.length; i += 3) p[i + 1] = height(tbase[i] + cx, tbase[i + 2] + cz);
-      tgeo.attributes.position.needsUpdate = true;
-      tgeo.computeVertexNormals();
-      tgeo.computeBoundingSphere();
-      terrain.position.set(cx, 0, cz);
-      water.position.set(cx, WATER, cz);
-    }
-
-    const blobTex = (() => {
-      const c = document.createElement('canvas'); c.width = c.height = 64;
-      const g = c.getContext('2d'), grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-      grad.addColorStop(0, 'rgba(0,0,0,0.6)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
-      g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
-      return new THREE.CanvasTexture(c);
-    })();
+    const blobTex = radialTexture([[0, 'rgba(0,0,0,0.55)'], [1, 'rgba(0,0,0,0)']]);
     const blobGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
     function blob(size, opacity) {
-      const m = new THREE.Mesh(blobGeo, new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, opacity, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
-      m.scale.setScalar(size);
+      const m = new THREE.Mesh(blobGeo, new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, opacity, depthWrite: false }));
+      m.scale.setScalar(size); m.position.y = 0.001; m.renderOrder = 1;
       scene.add(m);
       return m;
     }
-
-    // ================================================================ props: low-poly trees in forest patches, boulders, survey stakes on corners
-    function tint(g, hex) {
-      g = g.index ? g.toNonIndexed() : g;
-      const c = new THREE.Color(hex), n = g.attributes.position.count, a = new Float32Array(n * 3);
-      for (let i = 0; i < n; i++) { a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b; }
-      g.setAttribute('color', new THREE.BufferAttribute(a, 3));
-      return g;
-    }
-    const trunk = () => tint(new THREE.CylinderGeometry(0.035, 0.048, 0.26, 6).translate(0, 0.13, 0), '#7c6c5a');
-    const PGEO = {
-      pine: [0, 1].map((k) => mergeGeometries([trunk(), ...[[0.28, 0.36, 0.32], [0.22, 0.31, 0.5], [0.145, 0.25, 0.66]].map(([r, h, y], i) =>
-        tint(new THREE.ConeGeometry(r, h, 7).translate(0, y, 0), (k ? ['#5d7d53', '#66875b', '#709163'] : ['#6d8e5e', '#779866', '#81a26f'])[i]))])),
-      round: [0, 1].map((k) => mergeGeometries([trunk(), tint(new THREE.IcosahedronGeometry(0.27, 1).scale(1, 0.92, 1).translate(0, 0.45, 0), k ? '#8aa66f' : '#9bb07a')])),
-      rock: [0, 1, 2].map((k) => {
-        const g = new THREE.IcosahedronGeometry(0.2, 0), p = g.attributes.position;
-        for (let i = 0; i < p.count; i++) {
-          const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-          const s = 1 + 0.28 * (hash(Math.round(x * 97), Math.round(y * 97) + k * 13, Math.round(z * 97)) - 0.5);
-          p.setXYZ(i, x * s * 1.15, (y < 0 ? y * 0.3 : y * 0.8) * s, z * s);
-        }
-        g.computeVertexNormals();
-        return tint(g, ['#bcb5a5', '#b1ab9c', '#c6c0b1'][k]);
-      }),
-      stake: [mergeGeometries([
-        tint(new THREE.CylinderGeometry(0.011, 0.011, 0.34, 6).translate(0, 0.17, 0), '#f3f1ea'),
-        tint(new THREE.ConeGeometry(0.03, 0.07, 8).rotateX(Math.PI).translate(0, 0.36, 0), '#2f4169'),
-        tint(new THREE.BoxGeometry(0.1, 0.055, 0.004).translate(0.05, 0.3, 0), '#2d5fb8'),
-      ])],
-    };
-    const PCELL = 1.5, PRANGE = 11, SRANGE = 9;
-    const props = new Map();
-    function placeProp(type, variant, x, z, s, yaw, key) {
-      const m = mesh(PGEO[type][variant], MAT.prop, scene);
-      m.position.set(x, height(x, z) - 0.02, z); m.rotation.y = yaw; m.scale.setScalar(s);
-      const R = { pine: 0.22, round: 0.25, rock: 0.2, stake: 0.07 }[type], top = { pine: 0.8, round: 0.72, rock: 0.2, stake: 0.36 }[type];
-      return { key, type, x, z, r: R * s, top: top * s + m.position.y, m };
-    }
-    function spawnCell(i, j) {
-      const x = (i + 0.2 + hash(i, j, 2) * 0.6) * PCELL, z = (j + 0.2 + hash(i, j, 3) * 0.6) * PCELL;
-      if (!dry(x, z, 0.12) || Math.hypot(x - START.x, z - START.z) < 2.4) return null;
-      const r = hash(i, j, 1), s = 0.85 + 0.45 * hash(i, j, 6), yaw = hash(i, j, 5) * TAU;
-      if (r < clamp((forestAt(x, z) - 0.08) * 1.6, 0, 0.6)) {
-        const pine = hash(i, j, 4) < 0.62;
-        return placeProp(pine ? 'pine' : 'round', hash(i, j, 8) < 0.5 ? 0 : 1, x, z, s, yaw, `${i},${j}`);
-      }
-      if (r > 0.962) return placeProp('rock', ihash(i, j, 9) % 3, x, z, s, yaw, `${i},${j}`);
-      return null;
-    }
-    function spawnStake(i, j) {
-      const x = i * GRID, z = j * GRID;
-      if (hash(i, j, 21) > 0.07 || !dry(x, z, 0.08) || forestAt(x, z) > 0.2) return null;
-      return placeProp('stake', 0, x + 0.12, z + 0.12, 1, hash(i, j, 22) * TAU, `s${i},${j}`);
-    }
-    let propClock = 0;
-    function updateProps(dt, force) {
-      propClock -= dt;
-      if (propClock > 0 && !force) return;
-      propClock = 0.3;
-      const fill = (prefix, cell, range, spawn) => {
-        const ci = Math.round(cam.x / cell), cj = Math.round(cam.z / cell);
-        for (let i = ci - range; i <= ci + range; i++) for (let j = cj - range; j <= cj + range; j++) {
-          const key = prefix + i + ',' + j;
-          if (!props.has(key)) props.set(key, { i, j, prefix, P: spawn(i, j) });
-        }
-        for (const [key, E] of props) {
-          if (E.prefix !== prefix || (Math.abs(E.i - ci) <= range && Math.abs(E.j - cj) <= range)) continue;
-          if (E.P) scene.remove(E.P.m);
-          props.delete(key);
-        }
-      };
-      fill('c', PCELL, PRANGE, spawnCell);
-      fill('s', GRID, SRANGE, spawnStake);
-    }
-    let near = [];
-    function nearProps(r) { near = []; for (const E of props.values()) if (E.P && Math.abs(E.P.x - pip.x) < r && Math.abs(E.P.z - pip.z) < r) near.push(E.P); return near; }
 
     // ================================================================ footprints, rings, goal flag
     function printTexture() {
@@ -933,25 +684,23 @@
       g.fillStyle = '#fff';
       g.globalAlpha = 0.3; rr(4, 4, 56, 120, 14);
       g.globalAlpha = 1;
-      for (let i = 0; i < 6; i++) rr(12, 14 + i * 18, 40, 8, 3);   // tread bars
+      for (let i = 0; i < 6; i++) rr(12, 14 + i * 18, 40, 8, 3);   // tread bars; toe at the bottom of the canvas = forward
       return new THREE.CanvasTexture(c);
     }
     const printTex = printTexture(), printGeo = new THREE.PlaneGeometry(0.19, 0.3).rotateX(-Math.PI / 2);
-    const prints = Array.from({ length: 110 }, () => {
-      const m = new THREE.Mesh(printGeo, new THREE.MeshBasicMaterial({ color: INK, map: printTex, transparent: true, opacity: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
-      m.visible = false; m.renderOrder = 2;
+    const prints = Array.from({ length: 90 }, () => {
+      const m = new THREE.Mesh(printGeo, new THREE.MeshBasicMaterial({ color: INK, map: printTex, transparent: true, opacity: 0, depthWrite: false }));
+      m.visible = false; m.renderOrder = 2; m.position.y = 0.002;
       scene.add(m);
       return { m, age: 99 };
     });
     let printI = 0;
-    const PRINT_LIFE = 26;
+    const PRINT_LIFE = 20;
 
     const rings = [], ringGeo = new THREE.RingGeometry(0.93, 1, 72).rotateX(-Math.PI / 2);
-    const _rn = new THREE.Vector3();
-    function ring(x, z, { r0 = 0.05, r1 = 0.3, dur = 0.6, color = INK, opacity = 0.2, y } = {}) {
-      const m = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color, transparent: true, depthWrite: false, opacity, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
-      m.position.set(x, (y ?? Math.max(height(x, z), WATER)) + 0.006, z);
-      if (y === undefined && dry(x, z, 0)) groundQuat(m.quaternion, normalAt(x, z, _rn), 0);
+    function ring(x, z, { r0 = 0.05, r1 = 0.3, dur = 0.6, color = INK, opacity = 0.2 } = {}) {
+      const m = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color, transparent: true, depthWrite: false, opacity }));
+      m.position.set(x, 0.003, z); m.renderOrder = 3;
       scene.add(m);
       rings.push({ m, t: 0, r0, r1, dur, opacity });
     }
@@ -969,93 +718,40 @@
     }
 
     // ================================================================ the walker and its drones
-    const START = (() => {
-      for (let r = 0; r < 60; r += 0.5) for (let a = 0; a < TAU; a += 0.4) {
-        const x = Math.cos(a) * r, z = Math.sin(a) * r;
-        if (dry(x, z, 0.25) && forestAt(x, z) < 0.05) return { x, z };
-      }
-      return { x: 0, z: 0 };
-    })();
-    const cam = { az: Math.PI / 4, azT: Math.PI / 4, zoom: 1.15, zoomT: 1.15, x: START.x, y: height(START.x, START.z) + 0.6, z: START.z };
-    const pip = new Walker(scene, START.x, START.z);
-    const pipBlob = blob(1.1, 0.35);
+    const pip = new Walker(scene);
+    const pipBlob = blob(1.1, 0.28);
     pip.onStep = (f) => {
       const P = prints[printI++ % prints.length];
       P.age = 0;
-      P.m.position.copy(f.pos).addScaledVector(f.n, 0.004);
-      P.m.position.x += Math.sin(f.yaw) * 0.04; P.m.position.z += Math.cos(f.yaw) * 0.04;
-      groundQuat(P.m.quaternion, f.n, f.yaw);
+      P.m.position.set(f.pos.x + Math.sin(f.yaw) * 0.04, 0.002, f.pos.z + Math.cos(f.yaw) * 0.04);
+      P.m.rotation.y = f.yaw;
       P.m.visible = true;
-      if (f.travel > 0.05) ring(f.pos.x, f.pos.z + Math.cos(f.yaw) * 0.03, { r0: 0.08, r1: 0.26, dur: 0.5, opacity: 0.12 });
-    };
-    pip.collide = (b) => {
-      for (const P of near) {
-        const dx = b.x - P.x, dz = b.z - P.z, d = Math.hypot(dx, dz) || 1e-3, min = P.r + BODY_R;
-        if (d < min) { b.x = P.x + (dx / d) * min; b.z = P.z + (dz / d) * min; }
-      }
+      if (f.travel > 0.05) ring(f.pos.x, f.pos.z + Math.cos(f.yaw) * 0.03, { r0: 0.08, r1: 0.26, dur: 0.5, opacity: 0.08 });
     };
     const drones = [0, 1, 2].map((i) => new Drone(scene, i));
-    drones.forEach((d, i) => { d.pos.set(START.x + Math.cos(i * 2.1) * 0.9, height(START.x, START.z) + 1.4, START.z + Math.sin(i * 2.1) * 0.9); });
+    drones.forEach((d, i) => { d.pos.set(Math.cos(i * 2.1) * 1.1, 1.4, Math.sin(i * 2.1) * 1.1); });
 
     // ================================================================ what happens next (a small state machine, nothing learned)
     const LABEL = { walk: 'On patrol', look: 'Scanning around', hi: 'Saying hi', doze: 'Powering down', goto: 'Heading to your marker' };
-    const D = { state: 'walk', t: 0, dur: 9, phase: 0, pace: 1, h0: 0, goal: new THREE.Vector3(), best: 1e9, bestT: 0, t0: 0, clock: 0, escape: null, chk: { t: 0, x: START.x, z: START.z }, note: null };
+    const D = { state: 'walk', t: 0, dur: 9, phase: 0, pace: 1, h0: 0, goal: new THREE.Vector3(), t0: 0, clock: 0 };
     const wander = [Math.random() * TAU, Math.random() * TAU];
-    const lookAt = new THREE.Vector3();
+    const lookAt = new THREE.Vector3(), _cam = new THREE.Vector3();
     function setState(state, extra = {}) {
       Object.assign(D, { state, t: 0, phase: 0, h0: pip.h }, extra);
       if (state === 'walk') D.pace = 0.88 + Math.random() * 0.24;
     }
-
-    // Steer toward a direction, sliding around trees and rocks and turning away from water.
-    function steer(dx, dz) {
-      const fx = Math.sin(pip.h), fz = Math.cos(pip.h);
-      const m = Math.hypot(dx, dz) || 1; dx /= m; dz /= m;
-      for (const P of near) {
-        const ox = pip.x - P.x, oz = pip.z - P.z, d = Math.hypot(ox, oz) || 1e-3;
-        const gap = d - P.r - BODY_R;
-        if (gap > 0.9) continue;
-        const ahead = -(ox * fx + oz * fz) / d;
-        if (ahead < -0.3) continue;
-        const s = clamp(1 - gap / 0.9, 0, 1.4) * (0.5 + 0.5 * Math.max(0, ahead));
-        const ux = ox / d, uz = oz / d;
-        let tx = -uz, tz = ux;
-        if (tx * dx + tz * dz < 0) { tx = -tx; tz = -tz; }
-        dx += (ux * 0.8 + tx * 1.2) * s; dz += (uz * 0.8 + tz * 1.2) * s;
-      }
-      for (const [a, dist, w] of [[0, 1.3, 1.5], [0.55, 1.1, 1], [-0.55, 1.1, 1], [0, 0.7, 2.5]]) {
-        const hx = Math.sin(pip.h + a), hz = Math.cos(pip.h + a);
-        if (!dry(pip.x + hx * dist, pip.z + hz * dist, 0.06)) { dx -= hx * w; dz -= hz * w; }
-      }
-      return clamp(angTo(pip.h, Math.atan2(dx, dz)) * 1.8, -1.1, 1.1);
-    }
-    function ahead(dist, y, yaw = 0) { const hh = pip.h + yaw; return lookAt.set(pip.x + Math.sin(hh) * dist, pip.gy + y, pip.z + Math.cos(hh) * dist); }
-    function interesting() {
-      let best = null, bd = 2.8;
-      for (const P of near) {
-        const dx = P.x - pip.x, dz = P.z - pip.z, d = Math.hypot(dx, dz);
-        if (d < bd && Math.abs(angTo(pip.h, Math.atan2(dx, dz))) < 1.1) { best = P; bd = d; }
-      }
-      return best;
-    }
+    function ahead(dist, y, yaw = 0) { const hh = pip.h + yaw; return lookAt.set(pip.x + Math.sin(hh) * dist, y, pip.z + Math.cos(hh) * dist); }
+    const headingTo = (x, z) => Math.atan2(x - pip.x, z - pip.z);
 
     function think(dt) {
       D.t += dt; D.clock += dt;
       const c = { vt: 0, wt: 0, look: null, happy: false, wide: false, sleepy: false, crouch: 0, blink: false };
-      // unstick: if a walk has gone nowhere for a while, turn well away
-      if (D.clock - D.chk.t > 2.5) {
-        if (D.state === 'walk' && Math.hypot(pip.x - D.chk.x, pip.z - D.chk.z) < 0.35) D.escape = { h: pip.h + (Math.random() < 0.5 ? 1 : -1) * (2 + Math.random()), until: D.clock + 2.4 };
-        D.chk = { t: D.clock, x: pip.x, z: pip.z };
-      }
-      if (D.escape && D.clock > D.escape.until) D.escape = null;
-
       if (D.state === 'walk') {
-        const w = 0.5 * Math.sin(D.clock * 0.21 + wander[0]) + 0.32 * Math.sin(D.clock * 0.53 + wander[1]);
-        const hd = D.escape ? D.escape.h : pip.h + w * 0.3;
-        c.wt = steer(Math.sin(hd), Math.cos(hd));
-        c.vt = WALK_V * D.pace * (1 - 0.35 * Math.min(1, Math.abs(c.wt) / 1.1));
-        const P = interesting();
-        c.look = P ? lookAt.set(P.x, P.top, P.z) : ahead(3, 0.6, 0.3 * Math.sin(D.clock * 0.7));
+        // gentle meander: two slow sine waves on the turn rate
+        c.wt = 0.26 * Math.sin(D.clock * 0.21 + wander[0]) + 0.17 * Math.sin(D.clock * 0.53 + wander[1]);
+        c.vt = WALK_V * D.pace;
+        const scout = swarm.scout && drones[swarm.scout.i];
+        c.look = scout ? lookAt.copy(scout.pos) : ahead(3, 0.7, 0.35 * Math.sin(D.clock * 0.7));
         if (D.t > D.dur) {
           const r = Math.random();
           if (r < 0.25) setState('look'); else if (r < 0.43) setState('hi'); else if (r < 0.5) setState('doze'); else setState('walk', { dur: 7 + Math.random() * 8 });
@@ -1064,12 +760,12 @@
         const k = D.t;
         const tgt = k < 1.8 ? D.h0 + 0.75 : k < 3.6 ? D.h0 - 0.6 : D.h0;
         c.wt = clamp(angTo(pip.h, tgt) * 2.2, -0.9, 0.9);
-        c.look = ahead(3, 1, k < 1.8 ? 0.7 : k < 3.6 ? -0.7 : 0);
+        c.look = ahead(3, 1.2, k < 1.8 ? 0.7 : k < 3.6 ? -0.7 : 0);
         c.wide = true;
         if (k > 4.6) setState('walk', { dur: 6 + Math.random() * 6 });
       } else if (D.state === 'hi') {
-        const err = angTo(pip.h, cam.az);
-        c.look = lookAt.set(pip.x + Math.sin(cam.az) * 5, pip.gy + 3.5, pip.z + Math.cos(cam.az) * 5);
+        const want = headingTo(camera.position.x, camera.position.z), err = angTo(pip.h, want);
+        c.look = camera.position;
         if (D.phase === 0) {
           c.wt = clamp(err * 2.6, -1.2, 1.2);
           if (Math.abs(err) < 0.25 || D.t > 2.4) { D.phase = 1; D.t0 = D.t; c.blink = true; }
@@ -1083,22 +779,20 @@
       } else if (D.state === 'doze') {
         c.crouch = D.t > 0.3 && D.t < 6.2 ? 1 : 0;
         c.sleepy = D.t > 0.9 && D.t < 6;
-        c.look = ahead(2, -0.3);
+        c.look = ahead(2, 0);
         if (D.t > 6.8) setState('walk', { dur: 6 + Math.random() * 6 });
       } else if (D.state === 'goto') {
         const gx = D.goal.x - pip.x, gz = D.goal.z - pip.z, gd = Math.hypot(gx, gz);
-        c.wt = steer(gx, gz);
-        c.vt = HURRY_V * clamp(gd / 0.6, 0.3, 1);
-        c.look = lookAt.set(D.goal.x, height(D.goal.x, D.goal.z) + 0.3, D.goal.z);
-        if (gd < D.best - 0.05) { D.best = gd; D.bestT = D.t; }
-        if (gd < 0.2) { ring(D.goal.x, D.goal.z, { r0: 0.14, r1: 0.6, dur: 0.7, color: ACCENT, opacity: 0.55 }); flag.visible = false; setState('hi'); }
-        else if (D.t - D.bestT > 3.5) { flag.visible = false; setState('look'); }
+        c.wt = clamp(angTo(pip.h, Math.atan2(gx, gz)) * 1.8, -1.1, 1.1);
+        c.vt = HURRY_V * clamp(gd / 0.6, 0.3, 1) * (1 - 0.5 * Math.min(1, Math.abs(c.wt)));
+        c.look = lookAt.set(D.goal.x, 0.3, D.goal.z);
+        if (gd < 0.2) { ring(D.goal.x, D.goal.z, { r0: 0.14, r1: 0.6, dur: 0.7, color: ACCENT, opacity: 0.5 }); flag.visible = false; setState('hi'); }
       }
       return c;
     }
 
-    // Drones escort in a loose ring, now and then one scouts a nearby tree or rock; one flies ahead to your marker;
-    // they gather and roll when Pip says hi, and land around it when it powers down.
+    // Drones escort in a loose ring; now and then one flies out to scan a patch of floor; one flies ahead to your
+    // marker; they flank Pip and roll when it says hi, and land around it when it powers down.
     const swarm = { t: 0, scout: null, nextScout: 4 };
     const _dt = new THREE.Vector3(), _dl = new THREE.Vector3();
     function updateDrones(dt, c) {
@@ -1108,91 +802,100 @@
       const hi = D.state === 'hi' && D.phase === 1;
       swarm.nextScout -= dt;
       if (!swarm.scout && swarm.nextScout <= 0 && D.state === 'walk') {
-        const cands = near.filter((P) => P.type !== 'stake' && Math.hypot(P.x - pip.x, P.z - pip.z) < 3.4);
-        if (cands.length) {
-          const P = cands[(Math.random() * cands.length) | 0];
-          swarm.scout = { i: (Math.random() * 3) | 0, P, until: t + 3.6 };
-          ring(P.x, P.z, { r0: 0.1, r1: 0.7, dur: 1.1, color: GLOW, opacity: 0.6 });
-        }
-        swarm.nextScout = 5 + Math.random() * 6;
+        const a = pip.h + (Math.random() < 0.5 ? 1 : -1) * (0.5 + Math.random() * 0.8), r = 2.4 + Math.random() * 1.2;
+        const x = pip.x + Math.sin(a) * r + Math.sin(pip.h) * pip.v * 2, z = pip.z + Math.cos(a) * r + Math.cos(pip.h) * pip.v * 2;
+        swarm.scout = { i: (Math.random() * 3) | 0, x, z, until: t + 3.8, pinged: false };
+        swarm.nextScout = 6 + Math.random() * 7;
       }
       if (swarm.scout && (t > swarm.scout.until || D.state !== 'walk')) swarm.scout = null;
       drones.forEach((d, i) => {
-        let look = c.look || ahead(3, 0.6);
+        let look = c.look || ahead(3, 0.7);
         const mood = { landed, happy: hi, roll: 0 };
         if (landed) {
           const a = pip.h + [1.9, Math.PI, -1.9][i];
-          const x = pip.x + Math.sin(a) * 0.85, z = pip.z + Math.cos(a) * 0.85;
-          _dt.set(x, height(x, z) + 0.145, z);
-          look = _dl.set(pip.x, pip.gy + 0.8, pip.z);
+          _dt.set(pip.x + Math.sin(a) * 0.85, 0.145, pip.z + Math.cos(a) * 0.85);
+          look = _dl.set(pip.x, 0.8, pip.z);
         } else if (hi) {
-          const k = D.t - D.t0, s = Math.sin(cam.az), co = Math.cos(cam.az);
-          const side = i - 1;
-          _dt.set(pip.x + s * 0.3 + co * side * 0.9, pip.gy + 1.5 + (side === 0 ? 0.42 : 0), pip.z + co * 0.3 - s * side * 0.9);
-          look = _dl.set(pip.x + s * 6, pip.gy + 3, pip.z + co * 6);
+          const k = D.t - D.t0, side = i - 1;
+          const s = Math.sin(pip.h), co = Math.cos(pip.h);
+          _dt.set(pip.x + s * 0.3 + co * side * 0.9, 1.35 + (side === 0 ? 0.35 : 0), pip.z + co * 0.3 - s * side * 0.9);
+          look = camera.position;
           const r = clamp((k - 0.25 - i * 0.3) / 0.7, 0, 1);
           mood.roll = r * r * (3 - 2 * r) * TAU;                                      // a barrel roll each, one after the other
         } else if (D.state === 'goto' && i === 0) {
-          _dt.set(D.goal.x, height(D.goal.x, D.goal.z) + 0.95, D.goal.z);
-          look = _dl.set(pip.x, pip.gy + 0.8, pip.z);
+          _dt.set(D.goal.x, 0.95, D.goal.z);
+          look = _dl.set(pip.x, 0.8, pip.z);
         } else if (swarm.scout && swarm.scout.i === i) {
-          const P = swarm.scout.P, a = t * 1.6;
-          _dt.set(P.x + Math.sin(a) * 0.35, P.top + 0.35, P.z + Math.cos(a) * 0.35);
-          look = _dl.set(P.x, P.top - 0.2, P.z);
+          const S = swarm.scout, a = t * 1.8;
+          _dt.set(S.x + Math.sin(a) * 0.3, 0.7, S.z + Math.cos(a) * 0.3);
+          look = _dl.set(S.x, 0, S.z);
+          if (!S.pinged && Math.hypot(d.pos.x - S.x, d.pos.z - S.z) < 0.6) { S.pinged = true; ring(S.x, S.z, { r0: 0.1, r1: 0.8, dur: 1.2, color: GLOW, opacity: 0.7 }); }
         } else {
           const a = pip.h + [0.95, Math.PI, -0.95][i] + 0.25 * Math.sin(t * 0.4 + i * 2);
           const r = 1.1 + 0.12 * Math.sin(t * 0.7 + i * 2);
-          const x = pip.x + Math.sin(a) * r, z = pip.z + Math.cos(a) * r;
-          _dt.set(x, Math.max(pip.gy, height(x, z)) + 1.4 + 0.12 * Math.sin(t * 0.9 + i * 1.7) + (i === 1 ? 0.12 : 0), z);
+          _dt.set(pip.x + Math.sin(a) * r, 1.4 + 0.12 * Math.sin(t * 0.9 + i * 1.7) + (i === 1 ? 0.12 : 0), pip.z + Math.cos(a) * r);
         }
         // keep clear of each other
         for (const o of drones) {
           if (o === d) continue;
           const dx = d.pos.x - o.pos.x, dy = d.pos.y - o.pos.y, dz = d.pos.z - o.pos.z, dd = Math.hypot(dx, dy, dz);
-          if (dd < 0.55 && dd > 1e-3) { const p = (0.55 - dd) / dd * 2.5; _dt.x += dx * p; _dt.y += dy * p; _dt.z += dz * p; }
+          if (dd < 0.55 && dd > 1e-3) { const p = ((0.55 - dd) / dd) * 2.5; _dt.x += dx * p; _dt.y += dy * p; _dt.z += dz * p; }
         }
         d.update(dt, _dt, look, mood);
       });
     }
 
     function sendTo(x, z) {
-      if (!dry(x, z, 0.05)) {
-        ring(x, z, { r0: 0.05, r1: 0.45, dur: 0.8, color: INK, opacity: 0.35, y: WATER });
-        D.note = { text: 'Pip can’t swim', until: D.clock + 2.2 };
-        return false;
-      }
       D.goal.set(x, 0, z);
-      setState('goto', { best: 1e9, bestT: 0 });
-      flag.position.set(x, height(x, z), z); flag.visible = true; flag.userData.t = 0;
+      setState('goto');
+      flag.position.set(x, 0, z); flag.visible = true; flag.userData.t = 0;
       ring(x, z, { r0: 0.05, r1: 0.35, dur: 0.5, color: ACCENT, opacity: 0.5 });
-      return true;
     }
 
-    // ================================================================ camera: fixed isometric angle, follows Pip, rotates in 90° steps
+    // ================================================================ camera: perspective, orbits around Pip between shots
+    const SHOT = {
+      follow: { az: Math.PI + 0.35, dist: 6.8, y: 2.9, la: 0.8, ly: 0.85 },
+      front: { az: 0.45, dist: 6.2, y: 1.45, la: 0.1, ly: 1.0 },
+      side: { az: Math.PI / 2 - 0.25, dist: 6.4, y: 1.5, la: 0.5, ly: 0.9 },
+    };
+    const AUTO = [['follow', 12], ['front', 8], ['follow', 9], ['side', 7]];
+    const cam = { mode: 'auto', i: 0, t: 0, heading: 0, ...SHOT.follow, zoom: 1, zoomT: 1, cx: 0, cz: 0 };
     const _look = new THREE.Vector3();
     function updateCamera(dt, snap = false) {
-      const k = snap ? 1 : damp(2.4, dt);
-      cam.x += (pip.x + Math.sin(pip.h) * pip.v * 0.8 - cam.x) * k;
-      cam.z += (pip.z + Math.cos(pip.h) * pip.v * 0.8 - cam.z) * k;
-      cam.y += (pip.gy + 0.6 - cam.y) * k;
-      cam.az = wrap(cam.az + angTo(cam.az, cam.azT) * (snap ? 1 : damp(5, dt)));
+      let shot = cam.mode;
+      if (shot === 'auto') {
+        cam.t += dt;
+        if (cam.t > AUTO[cam.i][1]) { cam.i = (cam.i + 1) % AUTO.length; cam.t = 0; }
+        shot = AUTO[cam.i][0];
+        if (D.state === 'hi' || D.state === 'doze') shot = 'front';
+      }
+      const S = SHOT[shot];
+      if (D.state !== 'hi') cam.heading = wrap(cam.heading + angTo(cam.heading, pip.h) * (snap ? 1 : damp(0.9, dt)));
+      const k = snap ? 1 : damp(1.3, dt);
+      cam.az = wrap(cam.az + angTo(cam.az, S.az) * k);
+      cam.dist += (S.dist - cam.dist) * k; cam.y += (S.y - cam.y) * k; cam.la += (S.la - cam.la) * k; cam.ly += (S.ly - cam.ly) * k;
       cam.zoom += (cam.zoomT - cam.zoom) * (snap ? 1 : damp(6, dt));
-      const ce = Math.cos(CAM_EL) * CAM_DIST, se = Math.sin(CAM_EL) * CAM_DIST;
-      camera.position.set(cam.x + Math.sin(cam.az) * ce, cam.y + se, cam.z + Math.cos(cam.az) * ce);
-      camera.lookAt(_look.set(cam.x, cam.y, cam.z));
-      if (Math.abs(camera.zoom - cam.zoom) > 1e-4) { camera.zoom = cam.zoom; camera.updateProjectionMatrix(); }
-      key.position.set(cam.x + KEY_OFF.x, cam.y + KEY_OFF.y, cam.z + KEY_OFF.z);
-      key.target.position.set(cam.x, cam.y, cam.z);
+      const kc = snap ? 1 : damp(4, dt);
+      cam.cx += (pip.x - cam.cx) * kc; cam.cz += (pip.z - cam.cz) * kc;
+      const A = cam.heading + cam.az, H = cam.heading, z = cam.zoom;
+      camera.position.set(cam.cx + Math.sin(A) * cam.dist * z, 0.2 + (cam.y - 0.2) * z, cam.cz + Math.cos(A) * cam.dist * z);
+      camera.lookAt(_look.set(cam.cx + Math.sin(H) * cam.la, cam.ly, cam.cz + Math.cos(H) * cam.la));
+      key.position.set(pip.x + 3.2, 6.5, pip.z + 2.6);
+      key.target.position.set(pip.x, 0, pip.z);
+      shadowFloor.position.x = Math.round(pip.x / 10) * 10; shadowFloor.position.z = Math.round(pip.z / 10) * 10;
+      floor.position.x = Math.round(pip.x / 50) * 50; floor.position.z = Math.round(pip.z / 50) * 50;
     }
-    const rotate = (dir) => { cam.azT = wrap(cam.azT + dir * Math.PI / 2); };
-    const zoomBy = (f) => { cam.zoomT = clamp(cam.zoomT * f, 0.6, 2.4); };
+    function setCam(mode) {
+      cam.mode = mode; cam.t = 0;
+      document.querySelectorAll('[data-cam]').forEach((b) => { b.classList.toggle('on', b.dataset.cam === mode); b.setAttribute('aria-pressed', String(b.dataset.cam === mode)); });
+    }
 
     // ================================================================ per-frame effects
     function updateFx(dt) {
       for (const P of prints) {
         if (P.age > PRINT_LIFE) continue;
         P.age += dt;
-        P.m.material.opacity = 0.22 * (1 - Math.min(1, P.age / PRINT_LIFE));
+        P.m.material.opacity = 0.14 * (1 - Math.min(1, P.age / PRINT_LIFE));
         P.m.visible = P.age < PRINT_LIFE;
       }
       for (let i = rings.length - 1; i >= 0; i--) {
@@ -1203,16 +906,7 @@
         r.m.material.opacity = r.opacity * (1 - Math.min(1, r.t));
         if (r.t >= 1) { scene.remove(r.m); r.m.material.dispose(); rings.splice(i, 1); }
       }
-      // trees standing between the camera and the walker turn see-through
-      const cx = Math.sin(cam.az), cz = Math.cos(cam.az);
-      for (const E of props.values()) {
-        const P = E.P;
-        if (!P) continue;
-        const dx = P.x - pip.x, dz = P.z - pip.z, along = dx * cx + dz * cz, across = Math.abs(dx * cz - dz * cx);
-        const hide = along > -0.2 && along < 3 && across < P.r + 0.6 && P.type !== 'stake';
-        P.m.material = hide ? MAT.propGhost : MAT.prop;
-      }
-      pipBlob.position.set(pip.x, pip.gy + 0.01, pip.z);
+      pipBlob.position.set(pip.x, 0.001, pip.z);
       if (flag.visible) {
         const F = flag.userData;
         F.t += dt;
@@ -1233,56 +927,38 @@
     }
     function sayHi() { if (D.state !== 'hi') setState('hi'); if (paused) setPaused(false); }
     function showStatus() {
-      $('#doing').textContent = paused ? 'Paused' : D.note && D.clock < D.note.until ? D.note.text : LABEL[D.state];
+      $('#doing').textContent = paused ? 'Paused' : LABEL[D.state];
       $('#st-steps').textContent = pip.steps.toLocaleString();
-      const m = pip.dist * M_PER_UNIT;
-      $('#st-dist').textContent = m < 100 ? m.toFixed(1) : Math.round(m).toLocaleString();
-      const gi = Math.floor(pip.x / GRID), gj = Math.floor(pip.z / GRID);
-      $('#st-grid').textContent = `${Math.abs(gi)}${gi >= 0 ? 'E' : 'W'} ${Math.abs(gj)}${gj >= 0 ? 'N' : 'S'}`;
+      $('#st-dist').textContent = pip.dist < 100 ? pip.dist.toFixed(1) : Math.round(pip.dist).toLocaleString();
+      const s = Math.floor(D.clock);
+      $('#st-time').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
     }
     let hintGone = false;
-    function hideHint() { if (!hintGone) { hintGone = true; $('#hint').classList.add('gone'); } }
+    function hideHint() { if (!hintGone) { hintGone = true; $('#hint')?.classList.add('gone'); } }
     if (coarse) $('#hint-verb').textContent = 'Tap';
     setTimeout(hideHint, 14000);
 
     $('#btn-play').addEventListener('click', () => setPaused(!paused));
     $('#btn-hi').addEventListener('click', sayHi);
-    $('#rot-l').addEventListener('click', () => rotate(-1));
-    $('#rot-r').addEventListener('click', () => rotate(1));
-    $('#zoom-in').addEventListener('click', () => zoomBy(1.25));
-    $('#zoom-out').addEventListener('click', () => zoomBy(0.8));
-    canvas.addEventListener('wheel', (e) => { e.preventDefault(); zoomBy(Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
+    document.querySelectorAll('[data-cam]').forEach((b) => b.addEventListener('click', () => setCam(b.dataset.cam)));
+    canvas.addEventListener('wheel', (e) => { e.preventDefault(); cam.zoomT = clamp(cam.zoomT * Math.exp(e.deltaY * 0.0012), 0.55, 2.2); }, { passive: false });
 
-    // click → march the view ray down onto the height field
-    const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
-    function pickGround(clientX, clientY) {
-      const r = canvas.getBoundingClientRect();
-      ndc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
-      ray.setFromCamera(ndc, camera);
-      const o = ray.ray.origin, d = ray.ray.direction;
-      for (let t = CAM_DIST * 0.5; t < CAM_DIST * 1.6; t += 0.04) {
-        const x = o.x + d.x * t, y = o.y + d.y * t, z = o.z + d.z * t;
-        if (y <= Math.max(height(x, z), WATER)) return { x, z };
-      }
-      return null;
-    }
+    const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), hit = new THREE.Vector3(), ground = new THREE.Plane(UP, 0);
     canvas.addEventListener('click', (e) => {
-      const p = pickGround(e.clientX, e.clientY);
-      if (!p) return;
-      sendTo(p.x, p.z);
+      const r = canvas.getBoundingClientRect();
+      ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      ray.setFromCamera(ndc, camera);
+      if (!ray.ray.intersectPlane(ground, hit) || Math.hypot(hit.x - pip.x, hit.z - pip.z) > 16) return;
+      sendTo(hit.x, hit.z);
       hideHint();
       if (paused) setPaused(false);
-      showStatus();
     });
     addEventListener('keydown', (e) => {
       if (e.target.closest?.('button') && (e.key === ' ' || e.key === 'Enter')) return;
       const k = e.key.toLowerCase();
       if (k === ' ' || k === 'p') { e.preventDefault(); setPaused(!paused); }
       else if (k === 'w') sayHi();
-      else if (k === 'q') rotate(-1);
-      else if (k === 'e') rotate(1);
-      else if (k === '+' || k === '=') zoomBy(1.25);
-      else if (k === '-' || k === '_') zoomBy(0.8);
+      else if (k === 'c') { const order = ['auto', 'follow', 'front', 'side']; setCam(order[(order.indexOf(cam.mode) + 1) % order.length]); }
       else if (k === 'h') document.body.classList.toggle('rec');
     });
 
@@ -1290,10 +966,8 @@
       const w = canvas.clientWidth, h = canvas.clientHeight;
       if (!w || !h) return;
       renderer.setSize(w, h, false);
-      const aspect = w / h;
-      let halfW = VIEW_H * aspect, halfH = VIEW_H;
-      if (halfW < 3.1) { halfW = 3.1; halfH = halfW / aspect; }         // portrait phones: keep enough map across
-      Object.assign(camera, { left: -halfW, right: halfW, top: halfH, bottom: -halfH });
+      camera.aspect = w / h;
+      camera.fov = w / h < 0.8 ? 44 : 30;             // phones in portrait: widen so Pip and the drones fit
       camera.updateProjectionMatrix();
     }
     addEventListener('resize', resize);
@@ -1302,8 +976,6 @@
     // ================================================================ loop
     let last = performance.now(), hud = 0;
     function step(dt) {
-      updateProps(dt);
-      nearProps(3.8);
       const c = think(dt);
       pip.update(dt, c);
       updateDrones(dt, c);
@@ -1314,23 +986,19 @@
       last = now;
       if (!paused) step(dt);
       updateCamera(dt);
-      recenterTerrain(cam.x, cam.z);
-      U.uTime.value += dt;
       hud -= dt;
       if (hud <= 0) { hud = 0.2; showStatus(); }
       renderer.render(scene, camera);
       requestAnimationFrame(frame);
     }
 
-    recenterTerrain(cam.x, cam.z);
-    updateProps(0, true);
-    nearProps(3.8);
     for (let i = 0; i < 30; i++) { const c = { vt: 0, wt: 0 }; pip.update(1 / 60, c); updateDrones(1 / 60, c); }
     updateCamera(0, true);
     setPaused(paused);
+    setCam('auto');
     renderer.render(scene, camera);
     $('#loader').classList.add('gone');
-    window.pip = { pip, drones, D, cam, props, setState, sendTo, sayHi, setPaused, step, rotate, zoomBy, updateCamera: (dt) => { updateCamera(dt); recenterTerrain(cam.x, cam.z); }, render: () => renderer.render(scene, camera) };
+    window.pip = { pip, drones, D, cam, setState, setCam, sendTo, sayHi, setPaused, step, updateCamera, render: () => renderer.render(scene, camera) };
     requestAnimationFrame((t) => { last = t; frame(t); });
   </script>
 </body>
