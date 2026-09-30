@@ -2,7 +2,7 @@
 
 ## Pip
 
-`pip/index.html` shows a small white two-legged robot wandering an endless studio floor. It uses the same floor, light and camera style as the Fly × Jev demo, but there is no brain behind it, only the visuals.
+`pip/index.html` shows a small white box robot on two legs, walking forever across an endless terrain map. The map is drawn in 2.5D from a fixed isometric angle. It is only visuals; there is no brain behind it.
 
 Serve the folder with any static server and open the page:
 
@@ -13,26 +13,29 @@ python3 -m http.server 8000
 
 The page is a single file. It loads three.js r170 from jsDelivr and fonts from Google Fonts, so it needs internet access.
 
-### What it does
+### What you see
 
-- Pip walks on its own, curving gently and stepping around the balls, blocks, pillars and cones scattered on the floor.
-- Every so often it stops to look around, or turns to the camera and waves.
-- When it spots a potted plant it walks over, leans in and looks at it for a moment. Each plant is visited once.
-- Every footstep leaves a print that fades after about 25 seconds. A faint line traces the longer path.
+- **Terrain**: rolling hills from a fixed Perlin height field, with lakes, sandy shores, contour lines every 0.1 units (a bolder one every 0.5) and slope-shaded colour.
+- **Map squares**: a thin boundary line every 2 units, with a cross at every corner. Orange survey stakes sit on some corners. The status card shows which square Pip is in.
+- **Props**: low-poly pine and round trees grow in forest patches, with boulders scattered in between. Trees between the camera and Pip turn see-through.
+- **Pip**: a rounded white box with a glossy face screen and two bird-style legs, with knees that bend backward. The eyes are drawn live: they blink, glance ahead of where Pip is going, squint uphill, turn into "^ ^" when it says hi, and close when it naps. A springy antenna wobbles with every step.
 
 ### Controls
 
 | Control | Action |
 |---|---|
-| Click or tap the floor | send Pip to that spot (it waves when it gets there) |
+| Click or tap the terrain | send Pip there (it says hi when it arrives; it won't walk into water) |
 | Play / Pause, `P` or `Space` | start or stop the walk |
-| Auto / Follow / Front / Side, `C` | camera (Auto cycles through the others and cuts to the front for waves) |
-| Say hi, `W` | Pip turns to the camera and waves |
+| Rotate buttons, `Q` / `E` | turn the view 90° |
+| − / +, mouse wheel, `-` / `+` | zoom |
+| Say hi, `W` | Pip turns to the camera and bounces |
 | `H` | hide the controls (for screen recording) |
 
 ### How the walk works
 
-- The feet are stepped in world space. A planted foot stays put until it lifts. The next foot then swings to where the body will be when it lands, so turns and stops come out right without sliding.
-- The legs are two-bone IK with forward-bending knees. The body bobs, sways and rolls toward the standing foot, and dips a little at each footfall.
-- The head and eyes follow springs, so glances overshoot slightly. The eyes lead the head and blink on big glances. The arms swing opposite the legs.
-- Behaviour is a small state machine: walk, look around, wave, visit a plant, go to a clicked spot. Nothing is learned.
+- **Footsteps**: the feet are stepped in world space onto the height field. A planted foot stays put and tilts to match the ground. The next foot then swings to where the body will be when it lands, lifting higher when it steps uphill.
+- **Legs**: two-bone IK with the knees pointing backward.
+- **Body**: bobs and sways toward the standing foot, dips at each footfall, and slows down going uphill.
+- **Wandering**: Pip curves gently and slides around trees and rocks. Feelers stop it walking into lakes, and if it gets stuck it turns away.
+- **Behaviour**: a small state machine: walk, look around, say hi, nap, or go to a clicked spot. Nothing is learned.
+- **Streaming world**: the terrain mesh and props are regenerated around the camera as Pip moves, so the walk never ends. A radial haze fades the edges of the map into the paper background.
