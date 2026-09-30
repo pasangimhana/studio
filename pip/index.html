@@ -660,8 +660,44 @@
     key.shadow.bias = -0.0005; key.shadow.normalBias = 0.02;
     scene.add(key, key.target);
 
-    // the floor is the background colour, unlit, so it runs to infinity with no horizon; shadows land on a sheet above it
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(600, 600).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: WHITE, toneMapped: false }));
+    // The floor is the background colour, unlit, so it runs to infinity with no horizon; shadows land on a sheet above it.
+    // Toward the edges and corners of the view a survey grid shows through: fine and bold lines, a cross on every bold
+    // corner and faint contour lines of an imaginary terrain. It is fixed to the world, so it scrolls as Pip walks.
+    const floorU = { uBg: { value: WHITE.clone() }, uInk: { value: INK.clone() }, uRes: { value: new THREE.Vector2(1, 1) } };
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(600, 600).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
+      uniforms: floorU,
+      vertexShader: 'varying vec2 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xz; gl_Position = projectionMatrix * viewMatrix * w; }',
+      fragmentShader: /* glsl */`
+        uniform vec3 uBg, uInk; uniform vec2 uRes; varying vec2 vW;
+        // fades a pattern out where it would be denser than a few pixels (far away, at grazing angles)
+        float density(float size, vec2 fw) { return smoothstep(2.0, 7.0, size / max(max(fw.x, fw.y), 1e-5)); }
+        float gridLines(vec2 p, float s, float w, vec2 fw) {
+          vec2 g = abs(fract(p / s + 0.5) - 0.5) * s;
+          vec2 l = 1.0 - smoothstep(vec2(w), vec2(w) + fw * 1.2, g);
+          return max(l.x, l.y) * density(s, fw);
+        }
+        float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float noise(vec2 p) { vec2 i = floor(p), f = fract(p), u = f * f * (3.0 - 2.0 * f);
+          return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y); }
+        void main() {
+          vec2 uv = gl_FragCoord.xy / uRes, a = vec2(uRes.x / uRes.y, 1.0);
+          float r = length((uv - 0.5) * a) / length(a * 0.5);               // 0 at the centre of the view, 1 in the corners
+          float mask = smoothstep(0.36, 0.95, r);
+          vec2 p = vW, fw = fwidth(p);
+          float minor = gridLines(p, 0.5, 0.004, fw);
+          float major = gridLines(p, 2.5, 0.008, fw);
+          vec2 g = abs(fract(p / 2.5 + 0.5) - 0.5) * 2.5;
+          float arm = 0.24, t = 0.02;
+          float cross = max((1.0 - smoothstep(t, t + fw.x, g.x)) * (1.0 - smoothstep(arm, arm + fw.y, g.y)),
+                            (1.0 - smoothstep(t, t + fw.y, g.y)) * (1.0 - smoothstep(arm, arm + fw.x, g.x))) * density(arm, fw);
+          float h = noise(p * 0.11) * 0.7 + noise(p * 0.29 + 7.3) * 0.3;
+          float c = h * 16.0, fc = max(fwidth(c), 1e-5);
+          float contour = (1.0 - smoothstep(0.3 * fc, 1.3 * fc, abs(fract(c + 0.5) - 0.5))) * (1.0 - smoothstep(0.12, 0.35, fc));
+          float ink = minor * 0.085 + major * 0.18 + cross * 0.48 + contour * 0.09;
+          gl_FragColor = vec4(mix(uBg, uInk, clamp(ink, 0.0, 1.0) * mask), 1.0);
+          #include <colorspace_fragment>
+        }`,
+    }));
     scene.add(floor);
     const shadowFloor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40).rotateX(-Math.PI / 2), new THREE.ShadowMaterial({ opacity: 0.13 }));
     shadowFloor.position.y = 0.0005; shadowFloor.receiveShadow = true;
@@ -969,6 +1005,7 @@
       camera.aspect = w / h;
       camera.fov = w / h < 0.8 ? 44 : 30;             // phones in portrait: widen so Pip and the drones fit
       camera.updateProjectionMatrix();
+      renderer.getDrawingBufferSize(floorU.uRes.value);
     }
     addEventListener('resize', resize);
     resize();

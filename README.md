@@ -16,6 +16,7 @@ The page is a single file. It loads three.js r170 from jsDelivr and fonts from G
 ### What you see
 
 - **The studio**: the floor and the background are the same white, so there is no horizon and the floor never ends. The only marks are soft shadows and footprints, which fade after about 20 seconds.
+- **Survey grid**: toward the edges and corners of the view a grid shows through the floor: fine lines every 0.5 m, bold lines every 2.5 m with a cross on each bold corner, and faint contour lines of an imaginary terrain. It is fixed to the world, so it scrolls past as Pip walks, while the middle of the view stays clean white.
 - **The walker**:
   - An egg-shaped white hull with panel seams and screws, and a navy crest.
   - A navy face frame around a hexagonal socket holding one glowing blue eye, with a vented chin plate and blue light strips on the cheeks.
