@@ -152,6 +152,10 @@
     import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
     import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
     import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+    import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
     const $ = (s) => document.querySelector(s);
     const TAU = Math.PI * 2;
@@ -180,15 +184,109 @@
     const Spring = (x = 0) => ({ x, v: 0 });
     function spring(s, target, dt, k = 60, c = 11) { s.v += ((target - s.x) * k - s.v * c) * dt; s.x += s.v * dt; return s.x; }
 
-    // ---------------------------------------------------------------- materials (armour white, navy trim, dark mechanics, blue glow)
+    // ---------------------------------------------------------------- skin: painted, worn, textured armour
+    // Everything is procedural and lives in each part's own coordinates, so the pattern sticks to the part:
+    // shallow dents and fine grain in the relief, long scratches, blotchy grime, flecks, chipped paint on edges
+    // and corners (where the normal turns fast), and on the hull a set of engraved sub-panel lines.
+    const SKIN = /* glsl */`
+      varying vec3 vObj;
+      uniform vec3 uWear; uniform float uGrime, uBump, uChip;
+      float h31(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+      float vnoise(vec3 x) {
+        vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(mix(h31(i), h31(i + vec3(1.0, 0.0, 0.0)), f.x), mix(h31(i + vec3(0.0, 1.0, 0.0)), h31(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),
+                   mix(mix(h31(i + vec3(0.0, 0.0, 1.0)), h31(i + vec3(1.0, 0.0, 1.0)), f.x), mix(h31(i + vec3(0.0, 1.0, 1.0)), h31(i + vec3(1.0, 1.0, 1.0)), f.x), f.y), f.z);
+      }
+      // weight of a pattern with wavelength w, faded out before it shrinks below a couple of pixels (no sparkle)
+      float lod(float w, float fw) { return 1.0 - smoothstep(w * 0.2, w * 0.5, fw); }
+      struct Skin { float height; float grime; float scratch; float fleck; float groove; };
+      Skin skinAt(vec3 p, float fw) {
+        Skin s;
+        float dent = vnoise(p * 11.0) * 0.6 + vnoise(p * 23.0 + 4.1) * 0.4;
+        float grain = (vnoise(p * 95.0) - 0.5) * lod(1.0 / 95.0, fw);
+        float sa = 1.0 - abs(vnoise(vec3(p.x * 7.0, p.y * 70.0, p.z * 7.0) + 2.3) * 2.0 - 1.0);
+        float sb = 1.0 - abs(vnoise(vec3(p.x * 70.0, p.y * 6.0 + 1.1, p.z * 70.0)) * 2.0 - 1.0);
+        s.scratch = (pow(sa, 26.0) + pow(sb, 30.0)) * lod(0.012, fw) * smoothstep(0.45, 0.7, vnoise(p * 3.0 + 9.0));
+        s.grime = vnoise(p * 4.5) * 0.65 + vnoise(p * 13.0 + 2.0) * 0.35;
+        s.fleck = step(0.78, vnoise(p * 55.0 + 7.7)) * lod(1.0 / 55.0, fw);
+        s.groove = 0.0;
+        #ifdef HULL
+          vec3 n = (p - vec3(0.0, ${CY.toFixed(3)}, ${CZ.toFixed(3)})) / vec3(${SX.toFixed(3)}, ${SY.toFixed(3)}, ${SZ.toFixed(3)});
+          float a = atan(n.z, n.y), b = acos(clamp(n.x / length(n), -1.0, 1.0));
+          vec2 fab = vec2(fwidth(a), fwidth(b)) * 1.3 + 1e-4;
+          float da = abs(fract(a / 0.62 + 0.31) - 0.5) * 0.62;
+          float db = min(abs(abs(b - 1.5708) - 0.62), abs(b - 1.5708) + step(0.95, a) + step(a, -1.75));
+          s.groove = max(1.0 - smoothstep(0.0035, 0.0035 + fab.x, da), 1.0 - smoothstep(0.0035, 0.0035 + fab.y, db));
+        #endif
+        s.height = (dent - 0.5) * 0.004 + grain * 0.0012 - s.scratch * 0.0012 - s.groove * 0.0025;
+        return s;
+      }
+      // bump from a procedural height (world units), via screen-space derivatives
+      vec3 bumped(vec3 pos, vec3 N, float h, float face) {
+        vec3 sx = dFdx(pos), sy = dFdy(pos);
+        vec3 r1 = cross(sy, N), r2 = cross(N, sx);
+        float det = dot(sx, r1) * face;
+        vec3 grad = sign(det) * (dFdx(h) * r1 + dFdy(h) * r2);
+        return normalize(abs(det) * N - grad);
+      }`;
+    // Lit materials tone-map themselves (Neutral), so the unlit white floor and background stay exactly white and
+    // shadows, footprints and ambient occlusion keep their full contrast on it.
+    const TONE = /* glsl */`
+      vec3 pipTone(vec3 color) {
+        const float start = 0.76, desat = 0.15;
+        float x = min(color.r, min(color.g, color.b));
+        color -= x < 0.08 ? x - 6.25 * x * x : 0.04;
+        float peak = max(color.r, max(color.g, color.b));
+        if (peak < start) return color;
+        float d = 1.0 - start, newPeak = 1.0 - d * d / (peak + d - start);
+        color *= newPeak / peak;
+        return mix(color, vec3(newPeak), 1.0 - 1.0 / (desat * (peak - newPeak) + 1.0));
+      }`;
+    const toneFrag = (f) => f.replace('#include <common>', '#include <common>\n' + TONE).replace('#include <tonemapping_fragment>', 'gl_FragColor.rgb = pipTone(gl_FragColor.rgb);');
+    function toned(m) { m.onBeforeCompile = (sh) => { sh.fragmentShader = toneFrag(sh.fragmentShader); }; return m; }
+    function skinned(base, { wear = 0x979aa0, grime = 0.12, bump = 1, chip = 0.5, hull = false } = {}) {
+      const m = base.clone();
+      const u = { uWear: { value: new THREE.Color(wear) }, uGrime: { value: grime }, uBump: { value: bump }, uChip: { value: chip } };
+      if (hull) m.defines = { ...(m.defines || {}), HULL: '' };
+      m.onBeforeCompile = (sh) => {
+        Object.assign(sh.uniforms, u);
+        sh.vertexShader = sh.vertexShader
+          .replace('#include <common>', '#include <common>\nvarying vec3 vObj;')
+          .replace('#include <begin_vertex>', '#include <begin_vertex>\nvObj = position;');
+        sh.fragmentShader = toneFrag(sh.fragmentShader)
+          .replace('#include <common>', '#include <common>\n' + SKIN)
+          .replace('#include <color_fragment>', `#include <color_fragment>
+            Skin sk = skinAt(vObj, length(fwidth(vObj)));
+            diffuseColor.rgb *= mix(1.0 - uGrime, 1.0 + uGrime * 0.25, sk.grime);
+            diffuseColor.rgb *= 1.0 - sk.fleck * 0.09 - sk.groove * 0.5;
+            diffuseColor.rgb = mix(diffuseColor.rgb, uWear, clamp(sk.scratch * 0.75, 0.0, 1.0));
+            float edgeWear = clamp(length(fwidth(vNormal)) * 6.0 - 0.35, 0.0, 1.0) * smoothstep(0.42, 0.62, vnoise(vObj * 38.0));
+            diffuseColor.rgb = mix(diffuseColor.rgb, uWear, edgeWear * uChip);`)
+          .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+            roughnessFactor = clamp(roughnessFactor * (0.82 + 0.4 * sk.grime) + sk.scratch * 0.25 + edgeWear * 0.15, 0.08, 1.0);`)
+          .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+            normal = bumped(-vViewPosition, normal, sk.height * uBump, faceDirection);`);
+      };
+      return m;
+    }
+    const BASE = {
+      armor: new THREE.MeshPhysicalMaterial({ color: 0xe7e6e1, roughness: 0.6, clearcoat: 0.12, clearcoatRoughness: 0.55 }),
+      armor2: new THREE.MeshPhysicalMaterial({ color: 0xc6c7c3, roughness: 0.64, clearcoat: 0.08, clearcoatRoughness: 0.6 }),
+      navy: new THREE.MeshPhysicalMaterial({ color: 0x2c3d63, roughness: 0.56, clearcoat: 0.1, clearcoatRoughness: 0.5 }),
+      mech: new THREE.MeshStandardMaterial({ color: 0x2a2b2f, roughness: 0.56, metalness: 0.5 }),
+      mech2: new THREE.MeshStandardMaterial({ color: 0x3c3e44, roughness: 0.46, metalness: 0.6 }),
+    };
     const MAT = {
-      armor: new THREE.MeshPhysicalMaterial({ color: 0xe8e7e3, roughness: 0.46, clearcoat: 0.35, clearcoatRoughness: 0.3 }),
-      armor2: new THREE.MeshPhysicalMaterial({ color: 0xcfd0cc, roughness: 0.5, clearcoat: 0.25, clearcoatRoughness: 0.35 }),
-      navy: new THREE.MeshPhysicalMaterial({ color: 0x2f4169, roughness: 0.5, clearcoat: 0.15, clearcoatRoughness: 0.35 }),
-      mech: new THREE.MeshStandardMaterial({ color: 0x2b2c30, roughness: 0.5, metalness: 0.45 }),
-      mech2: new THREE.MeshStandardMaterial({ color: 0x3e4046, roughness: 0.38, metalness: 0.55 }),
-      steel: new THREE.MeshStandardMaterial({ color: 0xa9abb0, roughness: 0.22, metalness: 1 }),
-      glass: new THREE.MeshPhysicalMaterial({ color: 0x05070b, roughness: 0.04, metalness: 0.2, clearcoat: 1, clearcoatRoughness: 0.02 }),
+      armor: skinned(BASE.armor, { wear: 0x9a9da2, grime: 0.1, chip: 0.55 }),
+      armor2: skinned(BASE.armor2, { wear: 0x8d9095, grime: 0.15, chip: 0.5 }),
+      navy: skinned(BASE.navy, { wear: 0x8a93a6, grime: 0.12, chip: 0.7 }),
+      mech: skinned(BASE.mech, { wear: 0x6f737a, grime: 0.18, chip: 0.4 }),
+      mech2: skinned(BASE.mech2, { wear: 0x8a8e95, grime: 0.15, chip: 0.45 }),
+      hArmor: skinned(BASE.armor, { wear: 0x9a9da2, grime: 0.1, chip: 0.55, hull: true }),
+      hArmor2: skinned(BASE.armor2, { wear: 0x8d9095, grime: 0.15, chip: 0.5, hull: true }),
+      hNavy: skinned(BASE.navy, { wear: 0x8a93a6, grime: 0.12, chip: 0.7, hull: true }),
+      steel: toned(new THREE.MeshStandardMaterial({ color: 0xa9abb0, roughness: 0.3, metalness: 1 })),
+      glass: toned(new THREE.MeshPhysicalMaterial({ color: 0x05070b, roughness: 0.06, metalness: 0.2, clearcoat: 1, clearcoatRoughness: 0.04 })),
       glow: new THREE.MeshBasicMaterial({ color: GLOW, toneMapped: false }),
       glowHot: new THREE.MeshBasicMaterial({ color: 0xc9f3ff, toneMapped: false }),
       glowDim: new THREE.MeshBasicMaterial({ color: 0x2a6178, toneMapped: false }),
@@ -239,42 +337,51 @@
       if (nOut) nOut.set(_hd.x / SX, _hd.y / SY, _hd.z / SZ).normalize();
       return out;
     }
-    // A thick armour plate covering [a0,a1]×[b0,b1] of the hull, shrunk by `gap` so the dark core shows between plates.
-    function hullPatch(a0, a1, b0, b1, { thick = 0.026, lift = 0, gap = 0.013 } = {}) {
+    // A thick armour plate covering [a0,a1]×[b0,b1] of the hull, shrunk by `gap` so the dark core shows between plates,
+    // with a chamfered top edge.
+    function hullPatch(a0, a1, b0, b1, { thick = 0.026, lift = 0, gap = 0.013, bevel = 0.018, drop = 0.008 } = {}) {
       a0 += gap; a1 -= gap; b0 += gap; b1 -= gap;
       const na = Math.max(2, Math.ceil((a1 - a0) / 0.05)), nb = Math.max(2, Math.ceil((b1 - b0) / 0.05));
       const pos = [], nor = [], idx = [], P = new THREE.Vector3(), N = new THREE.Vector3();
-      const vtx = (a, b, inner) => { hullAt(a, b, P, N); P.addScaledVector(N, lift - (inner ? thick : 0)); return new THREE.Vector3().copy(P); };
-      for (const inner of [false, true]) {
-        const base = pos.length / 3, s = inner ? -1 : 1;
+      const vtx = (a, b, off) => { hullAt(a, b, P, N); return P.clone().addScaledVector(N, lift + off); };
+      const grid = (A0, A1, B0, B1, off, under) => {
+        const base = pos.length / 3, s = under ? -1 : 1;
         for (let i = 0; i <= na; i++) for (let j = 0; j <= nb; j++) {
-          const a = a0 + ((a1 - a0) * i) / na, b = b0 + ((b1 - b0) * j) / nb;
-          const p = vtx(a, b, inner);
+          const p = vtx(A0 + ((A1 - A0) * i) / na, B0 + ((B1 - B0) * j) / nb, off);
           pos.push(p.x, p.y, p.z); nor.push(N.x * s, N.y * s, N.z * s);
         }
         for (let i = 0; i < na; i++) for (let j = 0; j < nb; j++) {
           const k = base + i * (nb + 1) + j, k1 = k + nb + 1;
-          if (inner) idx.push(k, k1, k + 1, k + 1, k1, k1 + 1); else idx.push(k, k + 1, k1, k + 1, k1 + 1, k1);
+          if (under) idx.push(k, k1, k + 1, k + 1, k1, k1 + 1); else idx.push(k, k + 1, k1, k + 1, k1 + 1, k1);
         }
-      }
-      // rim walls with flat normals facing out of the plate
-      const rim = [];
-      for (let i = 0; i <= na; i++) rim.push([a0 + ((a1 - a0) * i) / na, b0]);
-      for (let j = 1; j <= nb; j++) rim.push([a1, b0 + ((b1 - b0) * j) / nb]);
-      for (let i = na - 1; i >= 0; i--) rim.push([a0 + ((a1 - a0) * i) / na, b1]);
-      for (let j = nb - 1; j >= 0; j--) rim.push([a0, b0 + ((b1 - b0) * j) / nb]);
-      const C = hullAt((a0 + a1) / 2, (b0 + b1) / 2, new THREE.Vector3());
-      const n = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), out = new THREE.Vector3();
-      for (let r = 0; r < rim.length - 1; r++) {
-        const eo = vtx(rim[r][0], rim[r][1], false), fo = vtx(rim[r + 1][0], rim[r + 1][1], false);
-        const ei = vtx(rim[r][0], rim[r][1], true), fi = vtx(rim[r + 1][0], rim[r + 1][1], true);
-        n.crossVectors(e1.subVectors(fo, eo), e2.subVectors(ei, eo)).normalize();
-        let quad = [eo, fo, fi, ei];
-        if (n.dot(out.addVectors(eo, fo).multiplyScalar(0.5).sub(C)) < 0) { quad = [eo, ei, fi, fo]; n.negate(); }
-        const base = pos.length / 3;
-        for (const q of quad) { pos.push(q.x, q.y, q.z); nor.push(n.x, n.y, n.z); }
-        idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
-      }
+      };
+      grid(a0 + bevel, a1 - bevel, b0 + bevel, b1 - bevel, 0, false);
+      grid(a0, a1, b0, b1, -thick, true);
+      const ring = (A0, A1, B0, B1, off) => {
+        const r = [];
+        for (let i = 0; i <= na; i++) r.push([A0 + ((A1 - A0) * i) / na, B0]);
+        for (let j = 1; j <= nb; j++) r.push([A1, B0 + ((B1 - B0) * j) / nb]);
+        for (let i = na - 1; i >= 0; i--) r.push([A0 + ((A1 - A0) * i) / na, B1]);
+        for (let j = nb - 1; j >= 0; j--) r.push([A0, B0 + ((B1 - B0) * j) / nb]);
+        return r.map(([a, b]) => vtx(a, b, off));
+      };
+      const top = ring(a0 + bevel, a1 - bevel, b0 + bevel, b1 - bevel, 0), rim = ring(a0, a1, b0, b1, -drop), under = ring(a0, a1, b0, b1, -thick);
+      hullAt((a0 + a1) / 2, (b0 + b1) / 2, P, N);
+      const inside = P.clone().addScaledVector(N, lift - 0.2);
+      const n = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), m = new THREE.Vector3();
+      const strip = (A, B) => {
+        for (let r = 0; r < A.length - 1; r++) {
+          let quad = [A[r], A[r + 1], B[r + 1], B[r]];
+          n.crossVectors(e1.subVectors(A[r + 1], A[r]), e2.subVectors(B[r], A[r])).normalize();
+          m.copy(A[r]).add(A[r + 1]).add(B[r]).add(B[r + 1]).multiplyScalar(0.25).sub(inside);
+          if (n.dot(m) < 0) { quad = [A[r], B[r], B[r + 1], A[r + 1]]; n.negate(); }
+          const base = pos.length / 3;
+          for (const q of quad) { pos.push(q.x, q.y, q.z); nor.push(n.x, n.y, n.z); }
+          idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+        }
+      };
+      strip(top, rim);
+      strip(rim, under);
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
       g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
@@ -377,9 +484,9 @@
           mesh(hullPatch(a0, a1, b0, b1, o), MAT[mats[k]], S);
           for (const [a, b] of [[a0 + 0.075, b0 + 0.075], [a1 - 0.075, b0 + 0.075], [a0 + 0.075, b1 - 0.075], [a1 - 0.075, b1 - 0.075]]) screws.push([screwGeo, hullMatrix(a, b, (o.lift || 0) + 0.002)]);
         });
-        band(H - CB, H + CB, [-2.9, -1.75, 0.95, 2.45, 3.38], ['armor', 'navy', 'armor', 'armor2'], { 1: { lift: 0.007, thick: 0.034 } });
-        for (const [b0, b1] of [[IB, H - CB], [H + CB, Math.PI - IB]]) band(b0, b1, [-2.5, -1.3, 0.2, 1.15, 2.2, 3.78], ['armor', 'armor', 'armor', 'armor', 'armor2']);
-        for (const [b0, b1] of [[OB, IB], [Math.PI - IB, Math.PI - OB]]) band(b0, b1, [-2.4, -0.9, 0.5, 1.5, 2.5, 3.88], ['armor', 'armor', 'armor', 'armor', 'armor2']);
+        band(H - CB, H + CB, [-2.9, -1.75, 0.95, 2.45, 3.38], ['hArmor', 'hNavy', 'hArmor', 'hArmor2'], { 1: { lift: 0.007, thick: 0.034 } });
+        for (const [b0, b1] of [[IB, H - CB], [H + CB, Math.PI - IB]]) band(b0, b1, [-2.5, -1.3, 0.2, 1.15, 2.2, 3.78], ['hArmor', 'hArmor', 'hArmor', 'hArmor', 'hArmor2']);
+        for (const [b0, b1] of [[OB, IB], [Math.PI - IB, Math.PI - OB]]) band(b0, b1, [-2.4, -0.9, 0.5, 1.5, 2.5, 3.88], ['hArmor', 'hArmor', 'hArmor', 'hArmor', 'hArmor2']);
         mesh(merged(screws), MAT.mech2, S);
         // ribbed dark rings around the side poles, under the sensor pods
         const ribGeo = new THREE.BoxGeometry(0.05, 0.014, 0.022), ribs = [];
@@ -790,19 +897,32 @@
     const canvas = $('#world');
     const coarse = matchMedia('(pointer: coarse)').matches;
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    renderer.toneMapping = THREE.NeutralToneMapping;
+    renderer.setPixelRatio(Math.min(devicePixelRatio, coarse ? 2 : 1.5));
+    renderer.toneMapping = THREE.NoToneMapping;          // done per material, see TONE
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     const scene = new THREE.Scene();
     scene.background = WHITE.clone();
     scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
-    scene.environmentIntensity = 0.6;
+    scene.environmentIntensity = 0.45;
     const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 300);
+    // Ground-truth ambient occlusion on desktop; phones render directly. Sprites (the glows) are kept out of the AO pass.
+    let composer = null, gtao = null;
+    const aoBox = new THREE.Box3();
+    if (!coarse) {
+      composer = new EffectComposer(renderer);
+      composer.addPass(new RenderPass(scene, camera));
+      gtao = new GTAOPass(scene, camera, 1, 1, undefined, { radius: 0.2, distanceExponent: 1.5, thickness: 1.2, scale: 1.25, samples: 16, distanceFallOff: 1 });
+      const hideFromAO = gtao.overrideVisibility.bind(gtao);
+      gtao.overrideVisibility = () => { hideFromAO(); scene.traverse((o) => { if (o.isSprite) o.visible = false; }); };
+      composer.addPass(gtao);
+      composer.addPass(new OutputPass());
+    }
+    const draw = () => (composer ? composer.render() : renderer.render(scene, camera));
 
-    scene.add(new THREE.HemisphereLight(0xffffff, 0xdedcd6, 1.3));
-    const key = new THREE.DirectionalLight(0xfff4e8, 2.2);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xd6d4ce, 0.95));
+    const key = new THREE.DirectionalLight(0xfff4e8, 2.7);
     key.castShadow = true;
     key.shadow.mapSize.setScalar(coarse ? 2048 : 4096);
     Object.assign(key.shadow.camera, { left: -4.5, right: 4.5, top: 4.5, bottom: -4.5, near: 0.5, far: 20 });
@@ -895,7 +1015,7 @@
     {
       const pole = axle(0.009, 0.5, MAT.mech, flag, 8); pole.position.y = 0.25;
       const shape = new THREE.Shape(); shape.moveTo(0, 0); shape.lineTo(0.18, -0.048); shape.lineTo(0, -0.096); shape.closePath();
-      const cloth = new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshStandardMaterial({ color: ACCENT, roughness: 0.6, side: THREE.DoubleSide }));
+      const cloth = new THREE.Mesh(new THREE.ShapeGeometry(shape), toned(new THREE.MeshStandardMaterial({ color: ACCENT, roughness: 0.6, side: THREE.DoubleSide })));
       cloth.castShadow = true;
       const hinge = new THREE.Group(); hinge.position.y = 0.5; hinge.add(cloth); flag.add(hinge);
       flag.userData = { hinge, t: 0 };
@@ -1069,6 +1189,7 @@
       camera.lookAt(_look.set(cam.cx + Math.sin(H) * cam.la, ly, cam.cz + Math.cos(H) * cam.la));
       key.position.set(pip.x + 3.2, 6.5, pip.z + 2.6);
       key.target.position.set(pip.x, 0, pip.z);
+      if (gtao) gtao.setSceneClipBox(aoBox.set(new THREE.Vector3(pip.x - 3, -0.3, pip.z - 3), new THREE.Vector3(pip.x + 3, 3.2, pip.z + 3)));
       shadowFloor.position.x = Math.round(pip.x / 10) * 10; shadowFloor.position.z = Math.round(pip.z / 10) * 10;
       floor.position.x = Math.round(pip.x / 50) * 50; floor.position.z = Math.round(pip.z / 50) * 50;
     }
@@ -1153,6 +1274,7 @@
       const w = canvas.clientWidth, h = canvas.clientHeight;
       if (!w || !h) return;
       renderer.setSize(w, h, false);
+      composer?.setSize(w, h);
       camera.aspect = w / h;
       camera.fov = w / h < 0.8 ? 44 : 30;             // phones in portrait: widen so Pip and the drones fit
       camera.updateProjectionMatrix();
@@ -1176,7 +1298,7 @@
       updateCamera(dt);
       hud -= dt;
       if (hud <= 0) { hud = 0.2; showStatus(); }
-      renderer.render(scene, camera);
+      draw();
       requestAnimationFrame(frame);
     }
 
@@ -1184,9 +1306,9 @@
     updateCamera(0, true);
     setPaused(paused);
     setCam('auto');
-    renderer.render(scene, camera);
+    draw();
     $('#loader').classList.add('gone');
-    window.pip = { pip, drones, D, cam, setState, setCam, sendTo, sayHi, setPaused, step, updateCamera, render: () => renderer.render(scene, camera) };
+    window.pip = { pip, drones, D, cam, setState, setCam, sendTo, sayHi, setPaused, step, updateCamera, render: draw };
     requestAnimationFrame((t) => { last = t; frame(t); });
   </script>
 </body>

@@ -28,6 +28,7 @@ The page is a single file. It loads three.js r170 from jsDelivr and fonts from G
   - Flared shin armour with navy knee plates, grooves and bolts.
   - Boots with a heel block, split toes, a navy instep plate and three wheels a side.
   - The iris blinks, turns into "^" when Pip says hi, and dims when it powers down.
+  - The armour is matte painted metal, not glossy plastic. Its surface is generated in each part's own coordinates, so it sticks to the part: shallow dents and fine grain in the relief, long scratches, patchy grime and flecks, paint chipped to grey metal on edges and corners, and engraved sub-panel lines across the hull. Plate edges are bevelled so they catch the light.
 - **The drones**: three round white scouts with navy caps and belly bands, one blue eye each, a small antenna, a glowing rear thruster, and a slow two-bladed rotor on each side.
   - They escort Pip in a loose ring, banking as they move.
   - Now and then one flies out to scan a patch of floor while Pip watches it.
@@ -51,5 +52,6 @@ The page is a single file. It loads three.js r170 from jsDelivr and fonts from G
 - **Legs**: two-bone IK with the knees forward.
 - **Body**: bobs and sways toward the standing foot, and settles at each footfall.
 - **Face plates**: flat 2D shapes bent onto the curved hull along its surface normal, and shaded with the hull's own normal.
+- **Rendering**: on desktop, ground-truth ambient occlusion (three.js GTAOPass) darkens the gaps, joints and the floor under Pip. It is limited to a box around Pip. The lit materials apply their own Neutral tone mapping, so the unlit floor and background stay exactly white.
 - **Drones**: spring-damped toward a target that depends on what Pip is doing, and they keep clear of each other.
 - **Behaviour**: a small state machine: patrol, scan around, say hi, power down, or go to a clicked spot. Nothing is learned.
