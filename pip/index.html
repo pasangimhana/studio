@@ -1165,7 +1165,7 @@
       side: { az: Math.PI / 2 - 0.25, dist: 6.4, y: 1.5, la: 0.5, ly: 0.9 },
     };
     const AUTO = [['follow', 12], ['front', 8], ['follow', 9], ['side', 7]];
-    const cam = { mode: 'auto', i: 0, t: 0, heading: 0, ...SHOT.follow, zoom: 1, zoomT: 1, cx: 0, cz: 0 };
+    const cam = { mode: 'auto', i: 0, t: 0, heading: 0, ...SHOT.follow, zoom: 1.35, zoomT: 1.35, cx: 0, cz: 0 };
     const _look = new THREE.Vector3();
     function updateCamera(dt, snap = false) {
       let shot = cam.mode;
@@ -1249,7 +1249,7 @@
     $('#btn-play').addEventListener('click', () => setPaused(!paused));
     $('#btn-hi').addEventListener('click', sayHi);
     document.querySelectorAll('[data-cam]').forEach((b) => b.addEventListener('click', () => setCam(b.dataset.cam)));
-    canvas.addEventListener('wheel', (e) => { e.preventDefault(); cam.zoomT = clamp(cam.zoomT * Math.exp(e.deltaY * 0.0012), 0.55, 2.2); }, { passive: false });
+    canvas.addEventListener('wheel', (e) => { e.preventDefault(); cam.zoomT = clamp(cam.zoomT * Math.exp(e.deltaY * 0.0012), 0.55, 2.8); }, { passive: false });
 
     const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), hit = new THREE.Vector3(), ground = new THREE.Plane(UP, 0);
     canvas.addEventListener('click', (e) => {
