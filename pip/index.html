@@ -1,0 +1,1068 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Pip the Walker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* Layout: full-bleed WebGL studio floor; name top-left, status card top-right, dark control dock bottom-centre.
+       Same visual system as Fly × Jev (paper, ink, one orange accent), light only by design. */
+    :root {
+      --paper: #f4f3ef;
+      --card: rgba(255, 255, 255, 0.94);
+      --ink: #1c1c1c;
+      --dim: #77756f;
+      --hair: rgba(28, 28, 28, 0.08);
+      --accent: #E55B2B;
+      --dock: #1c1c1c;
+      --dock-fg: #f4f3ef;
+      --dock-dim: rgba(244, 243, 239, 0.45);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 18px 44px rgba(28, 28, 28, 0.09);
+      --sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      --mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+      color-scheme: light;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 15px; overflow: hidden; -webkit-font-smoothing: antialiased; font-feature-settings: "tnum" 1, "cv11" 1; }
+    button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+    button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    kbd { font-family: var(--mono); font-size: 11px; font-weight: 400; }
+
+    #world { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: manipulation; }
+
+    #top { position: fixed; left: 40px; top: calc(30px + env(safe-area-inset-top, 0px)); pointer-events: none; }
+    #top h1, #loader h1 { font-weight: 700; font-size: 56px; line-height: 1; letter-spacing: -0.045em; }
+    #top h1 em, #loader h1 em { color: var(--accent); font-style: normal; }
+    #top p { margin-top: 10px; font-size: 15px; font-weight: 500; color: var(--dim); }
+
+    .card { background: var(--card); border: 1px solid var(--hair); border-radius: 18px; box-shadow: var(--shadow); }
+    .kicker { font-size: 11.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
+
+    #status { position: fixed; right: 40px; top: calc(36px + env(safe-area-inset-top, 0px)); width: 300px; padding: 16px 18px 15px; pointer-events: none; }
+    #doing { margin-top: 8px; font-size: 26px; font-weight: 700; line-height: 1.1; letter-spacing: -0.035em; text-wrap: balance; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--hair); }
+    .stats b { display: block; font-size: 20px; font-weight: 700; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+    .stats span { display: block; margin-top: 5px; font-size: 11.5px; color: var(--dim); }
+
+    #hint {
+      position: fixed; left: 50%; bottom: calc(108px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+      padding: 8px 15px; border-radius: 999px; background: var(--card); box-shadow: var(--shadow);
+      font-size: 13.5px; color: var(--dim); white-space: nowrap; pointer-events: none; transition: opacity 0.6s ease;
+    }
+    #hint b { color: var(--ink); font-weight: 600; }
+    #hint.gone { opacity: 0; }
+
+    #dock {
+      position: fixed; left: 50%; bottom: calc(32px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+      display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px; padding: 8px;
+      width: max-content; max-width: calc(100vw - 32px); background: var(--dock); border-radius: 22px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12), 0 20px 44px rgba(0, 0, 0, 0.22);
+    }
+    #dock .group { display: flex; align-items: center; gap: 4px; }
+    #dock .sep { width: 1px; height: 30px; background: rgba(255, 255, 255, 0.14); margin: 0 8px; }
+    #dock .glabel { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dock-dim); margin: 0 6px 0 4px; }
+    .dbtn {
+      height: 52px; padding: 0 18px; border-radius: 14px; color: var(--dock-fg);
+      display: flex; align-items: center; gap: 10px;
+      font-size: 17px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap;
+      transition: background 0.18s, color 0.18s;
+    }
+    .dbtn:hover { background: rgba(255, 255, 255, 0.09); }
+    .dbtn svg { width: 15px; height: 15px; flex: none; }
+    .dbtn.play { background: var(--accent); color: #fff; padding: 0 22px 0 18px; }
+    .dbtn.play:hover { background: #ef6a3b; }
+    .dbtn.on { background: var(--dock-fg); color: var(--ink); }
+    .dbtn kbd { margin-left: 2px; color: var(--dock-dim); border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 5px; padding: 1px 6px; }
+    .dbtn.on kbd { color: var(--dim); border-color: var(--hair); }
+
+    #loader { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: var(--paper); transition: opacity 0.8s ease; }
+    #loader.gone { opacity: 0; pointer-events: none; }
+    #loader .ld { font-size: 14px; color: var(--dim); }
+
+    body.rec #dock, body.rec #hint { opacity: 0; pointer-events: none; }
+
+    @media (max-width: 1150px) {
+      #top { left: 24px; top: calc(20px + env(safe-area-inset-top, 0px)); }
+      #top h1 { font-size: 40px; }
+      #status { right: 24px; top: calc(22px + env(safe-area-inset-top, 0px)); width: 260px; padding: 13px 15px; }
+      #doing { font-size: 22px; }
+      .dbtn { height: 46px; padding: 0 14px; font-size: 15px; }
+      .dbtn kbd { display: none; }
+    }
+    @media (max-width: 720px) {
+      #top { left: 16px; top: calc(14px + env(safe-area-inset-top, 0px)); }
+      #top h1 { font-size: 34px; }
+      #top p { display: none; }
+      #status { left: 16px; right: auto; top: calc(58px + env(safe-area-inset-top, 0px)); width: auto; max-width: calc(100vw - 32px); padding: 10px 13px; border-radius: 14px; }
+      #status .kicker { display: none; }
+      #doing { margin-top: 0; font-size: 17px; }
+      .stats { gap: 14px; margin-top: 8px; padding-top: 8px; }
+      .stats b { font-size: 15px; }
+      .stats span { font-size: 10.5px; margin-top: 3px; }
+      #dock { bottom: calc(14px + env(safe-area-inset-bottom, 0px)); padding: 5px; gap: 2px; border-radius: 16px; }
+      #dock .glabel { display: none; }
+      #dock .sep { display: none; }
+      .dbtn { height: 40px; padding: 0 9px; font-size: 13.5px; gap: 6px; border-radius: 11px; }
+      .dbtn.play { padding: 0 12px; }
+      .dbtn.play span { display: none; }
+      #hint { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); font-size: 12.5px; }
+    }
+  </style>
+  <script type="importmap">
+    {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}
+  </script>
+</head>
+<body>
+  <canvas id="world" aria-label="Pip, a small white robot, walking around a studio floor"></canvas>
+
+  <header id="top"><h1>Pip<em>.</em></h1><p>A small white robot, out for a walk.</p></header>
+
+  <aside id="status" class="card" aria-live="polite">
+    <div class="kicker">Now</div>
+    <div id="doing">Out for a walk</div>
+    <div class="stats">
+      <div><b id="st-steps">0</b><span>steps</span></div>
+      <div><b id="st-dist">0.0</b><span>meters</span></div>
+      <div><b id="st-plants">0</b><span>plants found</span></div>
+    </div>
+  </aside>
+
+  <div id="hint"><b id="hint-verb">Click</b> the floor to send Pip somewhere</div>
+
+  <nav id="dock" aria-label="Controls">
+    <button id="btn-play" class="dbtn play" type="button"></button>
+    <span class="sep"></span>
+    <div class="group" role="group" aria-label="Camera">
+      <span class="glabel">Camera</span>
+      <button data-cam="auto" class="dbtn on" type="button">Auto</button>
+      <button data-cam="follow" class="dbtn" type="button">Follow</button>
+      <button data-cam="front" class="dbtn" type="button">Front</button>
+      <button data-cam="side" class="dbtn" type="button">Side</button>
+    </div>
+    <span class="sep"></span>
+    <button id="btn-hi" class="dbtn" type="button">Say hi<kbd>W</kbd></button>
+  </nav>
+
+  <div id="loader"><h1>Pip<em>.</em></h1><div class="ld">waking up</div></div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+    import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+    const $ = (s) => document.querySelector(s);
+    const TAU = Math.PI * 2;
+    const UP = new THREE.Vector3(0, 1, 0);
+
+    // ---------------------------------------------------------------- look
+    const HORIZON = new THREE.Color('#f2f0eb');
+    const SKY_TOP = new THREE.Color('#e1e4e7');
+    const FLOOR = new THREE.Color('#ebe8e1');
+    const INK = new THREE.Color('#1c1c1c');
+    const ACCENT = new THREE.Color('#E55B2B');
+    const FOG_NEAR = 6, FOG_FAR = 20;
+
+    // ---------------------------------------------------------------- body plan (world units; Pip stands ~1.1 tall)
+    const WALK_V = 0.46;          // cruising speed
+    const HURRY_V = 0.62;         // on the way to a spot you clicked
+    const T_SWING = 0.32;         // seconds per step at cruising speed
+    const LIFT = 0.065;           // swing-foot clearance
+    const STANCE_W = 0.12;        // half the distance between the feet
+    const PELVIS = 0.35;          // hip height at rest
+    const HIP_X = 0.11;
+    const ANKLE_H = 0.059;        // ankle pivot above the sole
+    const TOE = 0.128, HEEL = 0.078;
+    const L1 = 0.155, L2 = 0.15;  // thigh, shin
+    const BODY_R = 0.3;           // collision radius
+    const M_PER_UNIT = 0.5;       // odometer: Pip is about 55 cm tall
+
+    const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const damp = (k, dt) => 1 - Math.exp(-k * dt);
+    const wrap = (a) => { a = (a + Math.PI) % TAU; if (a < 0) a += TAU; return a - Math.PI; };
+    const angTo = (from, to) => wrap(to - from);
+    const hump = (t, a, b) => (t <= a || t >= b ? 0 : Math.sin((Math.PI * (t - a)) / (b - a)));
+    function hash(i, j, k) {
+      let h = Math.imul(i | 0, 0x27d4eb2d) ^ Math.imul(j | 0, 0x165667b1) ^ Math.imul(k | 0, 0x9e3779b1);
+      h = Math.imul(h ^ (h >>> 15), 0x85ebca6b); h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+      return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+    }
+    // Slightly underdamped spring, for the head and eyes (a little overshoot reads as alive).
+    const Spring = (x = 0) => ({ x, v: 0 });
+    function spring(s, target, dt, k = 60, c = 11) { s.v += ((target - s.x) * k - s.v * c) * dt; s.x += s.v * dt; return s.x; }
+
+    // ---------------------------------------------------------------- materials
+    const MAT = {
+      white: new THREE.MeshPhysicalMaterial({ color: 0xf5f5f2, roughness: 0.28, clearcoat: 0.7, clearcoatRoughness: 0.15 }),
+      white2: new THREE.MeshPhysicalMaterial({ color: 0xe3e3de, roughness: 0.5, clearcoat: 0.25 }),
+      graphite: new THREE.MeshStandardMaterial({ color: 0x1d1d1d, roughness: 0.42, metalness: 0.35 }),
+      gloss: new THREE.MeshPhysicalMaterial({ color: 0x0e0e0e, roughness: 0.08, metalness: 0.2, clearcoat: 1, clearcoatRoughness: 0.03 }),
+      steel: new THREE.MeshStandardMaterial({ color: 0xbdbdb8, roughness: 0.2, metalness: 1 }),
+      rubber: new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.9 }),
+      glass: new THREE.MeshPhysicalMaterial({ color: 0x070707, roughness: 0.02, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.02 }),
+      accent: new THREE.MeshBasicMaterial({ color: ACCENT }),
+      accentSolid: new THREE.MeshPhysicalMaterial({ color: ACCENT, roughness: 0.35, clearcoat: 0.6 }),
+      off: new THREE.MeshStandardMaterial({ color: 0x3b3a37, roughness: 0.6 }),
+      glint: new THREE.MeshBasicMaterial({ color: 0xffffff }),
+      leaf: new THREE.MeshStandardMaterial({ color: 0x79a257, roughness: 0.55 }),
+      soil: new THREE.MeshStandardMaterial({ color: 0x3b3129, roughness: 1 }),
+    };
+
+    function mesh(geo, mat, parent) {
+      const m = new THREE.Mesh(geo, mat);
+      m.castShadow = true; m.receiveShadow = true;
+      parent?.add(m);
+      return m;
+    }
+    const box = (w, h, d, r, mat, parent) => mesh(new RoundedBoxGeometry(w, h, d, 3, r), mat, parent);
+    const sphere = (r, mat, parent, seg = 32) => mesh(new THREE.SphereGeometry(r, seg, Math.round(seg * 0.66)), mat, parent);
+    const axle = (r, h, mat, parent, seg = 24) => mesh(new THREE.CylinderGeometry(r, r, h, seg), mat, parent);
+    // Capsule of fixed length along +Y from the origin (or -Y when `down`).
+    function capsule(r, len, mat, parent, down = false) {
+      const g = new THREE.CapsuleGeometry(r, len, 6, 18);
+      g.translate(0, down ? -len / 2 : len / 2, 0);
+      return mesh(g, mat, parent);
+    }
+    const _d = new THREE.Vector3();
+    function aim(m, a, b) { m.position.copy(a); _d.subVectors(b, a).normalize(); m.quaternion.setFromUnitVectors(UP, _d); }
+    function orient(m, axis) { m.quaternion.setFromUnitVectors(UP, _d.copy(axis).normalize()); }
+
+    function radialTexture(alpha) {
+      const c = document.createElement('canvas'); c.width = c.height = 128;
+      const g = c.getContext('2d');
+      const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+      grad.addColorStop(0, `rgba(0,0,0,${alpha})`); grad.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
+      return new THREE.CanvasTexture(c);
+    }
+
+    // ================================================================ PIP
+    // A boxy white body on two short legs, binocular eyes on a neck, little clamp hands.
+    // Feet are stepped in world space (planted until lifted), legs are two-bone IK with forward knees.
+    class Pip {
+      constructor(scene) {
+        this.scene = scene;
+        this.root = new THREE.Group();
+        this.body = new THREE.Group();
+        this.root.add(this.body);
+        scene.add(this.root);
+        this.buildBody(); this.buildHead(); this.buildArms(); this.buildLegs();
+
+        this.x = 0; this.z = 0; this.h = 0; this.v = 0; this.w = 0; this.accel = 0;
+        this.t = 0; this.dist = 0; this.steps = 0; this.lean = 0; this.thump = 0; this.flash = 0;
+        this.feet = [1, -1].map((side) => ({
+          side, pos: new THREE.Vector3(side * STANCE_W, 0, 0), yaw: 0, swing: false, u: 0, T: T_SWING,
+          from: new THREE.Vector3(), fromYaw: 0, travel: 0, lift: 0, pitch: 0,
+        }));
+        this.next = 0; this.sinceLand = 1;
+        this.head = { yaw: Spring(), pitch: Spring(), roll: Spring() };
+        this.blink = { next: 1.2, t: -1, dur: 0.17 };
+        this.pupil = Spring(1); this.squint = Spring(0); this.saccade = { t: 0, x: 0, y: 0 };
+        this.lastLook = 0;
+        this.onStep = () => {};
+        this.collide = () => {};
+        this._t = new THREE.Vector3(); this._a = new THREE.Vector3(); this._h = new THREE.Vector3(); this._k = new THREE.Vector3();
+        this._e = new THREE.Vector3(); this._p = new THREE.Vector3(); this._n = new THREE.Vector3(); this._f = new THREE.Vector3(); this._l = new THREE.Vector3();
+      }
+
+      buildBody() {
+        const B = this.body;
+        const pelvis = box(0.3, 0.09, 0.22, 0.035, MAT.graphite, B); pelvis.position.y = 0.01;
+        const torso = box(0.52, 0.44, 0.42, 0.07, MAT.white, B); torso.position.y = 0.27;           // 0.05 .. 0.49
+        const door = box(0.42, 0.31, 0.02, 0.008, MAT.white2, B); door.position.set(0, 0.28, 0.207);
+        // charge meter: five bars behind a dark window
+        const win = box(0.08, 0.215, 0.014, 0.006, MAT.glass, B); win.position.set(-0.115, 0.285, 0.218);
+        this.bars = [];
+        for (let i = 0; i < 5; i++) {
+          const bar = box(0.056, 0.024, 0.008, 0.003, MAT.off, B);
+          bar.position.set(-0.115, 0.2 + i * 0.041, 0.226);
+          this.bars.push(bar);
+        }
+        // speaker grille and a status light
+        for (let i = 0; i < 4; i++) { const s = box(0.13, 0.012, 0.006, 0.003, MAT.graphite, B); s.position.set(0.1, 0.19 + i * 0.026, 0.219); }
+        const bezel = mesh(new THREE.TorusGeometry(0.026, 0.007, 10, 32), MAT.graphite, B); bezel.position.set(0.1, 0.345, 0.219);
+        this.led = sphere(0.018, MAT.off, B, 16); this.led.position.set(0.1, 0.345, 0.214); this.led.scale.z = 0.6;
+        for (const [x, y] of [[-0.19, 0.418], [0.19, 0.418], [-0.19, 0.142], [0.19, 0.142]]) { const b = sphere(0.009, MAT.steel, B, 10); b.position.set(x, y, 0.219); }
+        // lid, hinge, vents, battery pack
+        const lid = box(0.46, 0.028, 0.37, 0.012, MAT.white2, B); lid.position.set(0, 0.497, -0.005);
+        const hinge = axle(0.014, 0.3, MAT.graphite, B); hinge.rotation.z = Math.PI / 2; hinge.position.set(0, 0.5, -0.19);
+        for (const s of [1, -1]) for (let i = 0; i < 3; i++) { const v = box(0.006, 0.12, 0.018, 0.003, MAT.graphite, B); v.position.set(s * 0.262, 0.2, -0.07 + i * 0.045); }
+        const pack = box(0.3, 0.22, 0.05, 0.02, MAT.white2, B); pack.position.set(0, 0.28, -0.225);
+        for (let i = 0; i < 3; i++) { const r = box(0.24, 0.01, 0.006, 0.003, MAT.graphite, B); r.position.set(0, 0.23 + i * 0.05, -0.252); }
+      }
+
+      buildHead() {
+        const B = this.body;
+        const base = axle(0.05, 0.03, MAT.graphite, B); base.position.set(0, 0.52, -0.04);
+        const neck = axle(0.02, 0.13, MAT.steel, B); neck.position.set(0, 0.59, -0.04);
+        const collar = axle(0.03, 0.035, MAT.graphite, B); collar.position.set(0, 0.56, -0.04);
+        this.headYaw = new THREE.Group(); this.headYaw.position.set(0, 0.655, -0.04); B.add(this.headYaw);
+        this.headTilt = new THREE.Group(); this.headYaw.add(this.headTilt);
+        const H = this.headTilt;
+        sphere(0.032, MAT.graphite, H, 16);
+        const bridge = box(0.09, 0.07, 0.11, 0.025, MAT.graphite, H); bridge.position.set(0, 0.045, 0.02);
+        this.eyes = [];
+        const shellGeo = new THREE.CylinderGeometry(0.084, 0.092, 0.15, 48); shellGeo.rotateX(Math.PI / 2);
+        const domeGeo = new THREE.SphereGeometry(0.071, 40, 12, 0, TAU, 0, Math.PI / 2); domeGeo.rotateX(Math.PI / 2);
+        for (const side of [1, -1]) {
+          const pod = new THREE.Group(); pod.position.set(side * 0.108, 0.06, 0.035); H.add(pod);
+          mesh(shellGeo, MAT.white, pod);
+          const back = sphere(0.092, MAT.white, pod, 32); back.scale.z = 0.45; back.position.z = -0.075;
+          const rim = mesh(new THREE.TorusGeometry(0.079, 0.011, 12, 48), MAT.graphite, pod); rim.position.z = 0.075;
+          const lens = new THREE.Group(); lens.position.z = 0.074; pod.add(lens);
+          const dome = mesh(domeGeo, MAT.glass, lens); dome.scale.z = 0.32;
+          const iris = new THREE.Group(); iris.position.z = 0.012; lens.add(iris);
+          const ring = mesh(new THREE.TorusGeometry(0.038, 0.0055, 10, 40), MAT.steel, iris); ring.position.z = 0.008;
+          const pupil = sphere(0.021, MAT.gloss, iris, 20); pupil.scale.z = 0.35; pupil.position.z = 0.01;
+          const g1 = new THREE.Mesh(new THREE.CircleGeometry(0.013, 20), MAT.glint); g1.position.set(-0.024, 0.027, 0.024); lens.add(g1);
+          const g2 = new THREE.Mesh(new THREE.CircleGeometry(0.006, 16), MAT.glint); g2.position.set(0.022, -0.021, 0.023); lens.add(g2);
+          this.eyes.push({ side, pod, lens, iris });
+        }
+      }
+
+      buildArms() {
+        this.arms = [1, -1].map((side) => {
+          const disc = axle(0.052, 0.034, MAT.graphite, this.body); disc.rotation.z = Math.PI / 2; disc.position.set(side * 0.276, 0.38, 0);
+          const sh = new THREE.Group(); sh.position.set(side * 0.3, 0.38, 0); this.body.add(sh);
+          const cap = axle(0.024, 0.07, MAT.steel, sh, 16); cap.rotation.z = Math.PI / 2;
+          capsule(0.032, 0.12, MAT.white, sh, true);
+          const el = new THREE.Group(); el.position.y = -0.13; sh.add(el);
+          const ej = axle(0.028, 0.062, MAT.graphite, el); ej.rotation.z = Math.PI / 2;
+          capsule(0.024, 0.09, MAT.graphite, el, true);
+          const hand = new THREE.Group(); hand.position.y = -0.115; el.add(hand);
+          box(0.05, 0.035, 0.06, 0.012, MAT.white, hand);
+          const fingers = [1, -1].map((s) => { const f = box(0.016, 0.055, 0.045, 0.006, MAT.white2, hand); f.position.set(s * 0.017, -0.036, 0); return { f, s }; });
+          return { side, sh, el, fingers, rx: 0, rz: side * 0.1, ex: -0.35, ez: 0, open: 0 };
+        });
+      }
+
+      buildLegs() {
+        const S = this.scene;
+        this.legs = [1, -1].map((side) => {
+          const hipJ = sphere(0.042, MAT.graphite, S, 20);
+          const thigh = capsule(0.036, L1, MAT.white, S);
+          const knee = new THREE.Group(); S.add(knee);
+          axle(0.035, 0.086, MAT.graphite, knee); axle(0.016, 0.094, MAT.steel, knee, 12);
+          const shin = capsule(0.028, L2, MAT.graphite, S);
+          const foot = new THREE.Group(); foot.rotation.order = 'YXZ'; S.add(foot);
+          const aj = axle(0.026, 0.075, MAT.graphite, foot); aj.rotation.z = Math.PI / 2;
+          const shoe = box(0.12, 0.05, 0.2, 0.022, MAT.white, foot); shoe.position.set(0, -0.03, 0.025);
+          const sole = box(0.126, 0.016, 0.206, 0.007, MAT.rubber, foot); sole.position.set(0, -0.051, 0.025);
+          const tab = box(0.05, 0.012, 0.03, 0.005, MAT.accentSolid, foot); tab.position.set(0, -0.014, -0.068);
+          return { side, hipJ, thigh, knee, shin, foot };
+        });
+      }
+
+      // Where a foot should land if it lifts now: ahead of where the body will be, turned with it.
+      target(f, lead, out) {
+        const hm = this.h + this.w * lead * 0.5, hp = this.h + this.w * lead;
+        const px = this.x + Math.sin(hm) * this.v * lead, pz = this.z + Math.cos(hm) * this.v * lead;
+        out.set(px + Math.cos(hp) * f.side * STANCE_W, 0, pz - Math.sin(hp) * f.side * STANCE_W);
+        return hp;
+      }
+
+      stepFeet(dt) {
+        const moving = Math.abs(this.v) > 0.03 || Math.abs(this.w) > 0.1;
+        const T = T_SWING - 0.07 * clamp((Math.abs(this.v) - WALK_V) / (HURRY_V - WALK_V), 0, 1);
+        const t = this._t;
+        this.sinceLand += dt;
+        if (!this.feet.some((f) => f.swing) && this.sinceLand > (moving ? 0.01 : 0.12)) {
+          const a = this.feet[this.next], b = this.feet[1 - this.next];
+          for (const f of [a, b]) {
+            const yawT = this.target(f, 1.5 * T + 0.01, t);
+            const err = Math.hypot(t.x - f.pos.x, t.z - f.pos.z), yerr = Math.abs(angTo(f.yaw, yawT));
+            if ((moving && f === a) || err > 0.03 || yerr > 0.18) {
+              Object.assign(f, { swing: true, u: 0, T, fromYaw: f.yaw, travel: err });
+              f.from.copy(f.pos);
+              this.next = this.feet.indexOf(f) ^ 1;
+              break;
+            }
+          }
+        }
+        for (const f of this.feet) {
+          if (!f.swing) continue;
+          f.u = Math.min(1, f.u + dt / f.T);
+          const yawT = this.target(f, (1 - f.u) * f.T + 0.5 * f.T + 0.01, t);
+          const e = f.u * f.u * (3 - 2 * f.u);
+          f.pos.lerpVectors(f.from, t, e);
+          f.yaw = f.fromYaw + angTo(f.fromYaw, yawT) * e;
+          f.lift = LIFT * Math.sin(Math.PI * Math.pow(f.u, 0.8)) * clamp(f.travel / 0.1, 0.3, 1);
+          f.pitch = 0.32 * Math.sin(TAU * f.u) * clamp(f.travel / 0.14, 0, 1);
+          if (f.u >= 1) {
+            Object.assign(f, { swing: false, lift: 0, pitch: 0 });
+            this.sinceLand = 0; this.thump = 1; this.flash = 1; this.steps++;
+            this.onStep(f);
+          }
+        }
+      }
+
+      // Ankle in world space; raised so a pitched toe or heel never sinks into the floor.
+      ankle(f, out) {
+        const c = Math.cos(f.pitch), s = Math.sin(f.pitch);
+        const low = Math.min(-ANKLE_H * c - TOE * s, -ANKLE_H * c + HEEL * s);
+        return out.set(f.pos.x, Math.max(f.lift + ANKLE_H, -low), f.pos.z);
+      }
+
+      // c: { vt, wt, look, tilt, happy, dilate, wave, admire, bend, blink }
+      update(dt, c) {
+        this.t += dt;
+        const vPrev = this.v;
+        this.v += (c.vt - this.v) * damp(c.vt > this.v ? 2.6 : 4, dt);
+        this.w += (c.wt - this.w) * damp(5, dt);
+        this.h = wrap(this.h + this.w * dt);
+        this.x += Math.sin(this.h) * this.v * dt;
+        this.z += Math.cos(this.h) * this.v * dt;
+        this.accel += ((this.v - vPrev) / Math.max(dt, 1e-3) - this.accel) * damp(8, dt);
+        this.collide(this);
+        this.dist += Math.abs(this.v) * dt;
+        this.stepFeet(dt);
+        this.poseBody(dt, c);
+        this.poseLegs();
+        this.poseHead(dt, c);
+        this.poseArms(dt, c);
+        this.poseLights(dt, c);
+      }
+
+      poseBody(dt, c) {
+        let sway = 0, bob = 0, twist = 0;
+        for (const f of this.feet) {
+          if (!f.swing) continue;
+          const s = Math.sin(Math.PI * f.u) * clamp(f.travel / 0.08, 0.3, 1);
+          sway -= f.side * s; bob += s; twist -= f.side * s;
+        }
+        this.thump = Math.max(0, this.thump - dt * 7);
+        const dip = hump(1 - this.thump, 0, 1);
+        this.dip = dip;
+        this.lean += (clamp(0.07 * this.v / WALK_V + this.accel * 0.05, -0.1, 0.14) - this.lean) * damp(4, dt);
+        const bend = c.bend || 0;
+        this.root.position.set(this.x, 0, this.z);
+        this.root.rotation.y = this.h;
+        const B = this.body;
+        B.position.set(sway * 0.02, PELVIS + bob * 0.02 - dip * 0.014 + Math.sin(this.t * 2.1) * 0.004 - bend * 0.03, 0);
+        B.rotation.set(this.lean + bend * 0.14, twist * 0.05, -sway * 0.07);
+      }
+
+      poseLegs() {
+        const B = this.body, h = this.h;
+        const fwd = this._f.set(Math.sin(h), 0, Math.cos(h)), left = this._l.set(Math.cos(h), 0, -Math.sin(h));
+        this.root.updateMatrixWorld(true);
+        let excess = 0;
+        this.legs.forEach((L, i) => {
+          const hip = B.localToWorld(this._h.set(L.side * HIP_X, -0.035, 0));
+          excess = Math.max(excess, hip.distanceTo(this.ankle(this.feet[i], this._a)) - (L1 + L2 - 0.004));
+        });
+        if (excess > 0) { B.position.y -= excess; this.root.updateMatrixWorld(true); }
+        this.legs.forEach((L, i) => {
+          const f = this.feet[i];
+          const H = B.localToWorld(this._h.set(L.side * HIP_X, -0.035, 0));
+          const A = this.ankle(f, this._a);
+          const e1 = this._e.subVectors(A, H); const d0 = e1.length(); e1.divideScalar(d0 || 1);
+          const dc = clamp(d0, Math.abs(L1 - L2) + 1e-3, L1 + L2 - 1e-3);
+          const e2 = this._p.copy(fwd).addScaledVector(left, L.side * 0.12);
+          e2.addScaledVector(e1, -e2.dot(e1)).normalize();
+          const a = Math.acos(clamp((L1 * L1 + dc * dc - L2 * L2) / (2 * L1 * dc), -1, 1));
+          const K = this._k.copy(H).addScaledVector(e1, Math.cos(a) * L1).addScaledVector(e2, Math.sin(a) * L1);
+          const end = this._t.copy(H).addScaledVector(e1, dc);
+          L.hipJ.position.copy(H);
+          aim(L.thigh, H, K);
+          aim(L.shin, K, end);
+          L.knee.position.copy(K);
+          orient(L.knee, this._n.crossVectors(e1, e2));
+          L.foot.position.copy(A);
+          L.foot.rotation.set(f.pitch, f.yaw, 0);
+        });
+      }
+
+      poseHead(dt, c) {
+        let ty = 0, tp = 0;
+        if (c.look) {
+          const dx = c.look.x - this.x, dz = c.look.z - this.z;
+          ty = clamp(angTo(this.h, Math.atan2(dx, dz)), -1.2, 1.2);
+          tp = clamp(Math.atan2(c.look.y - 1.0, Math.hypot(dx, dz)), -0.65, 0.45);
+        }
+        // big glances come with a blink
+        if (Math.abs(ty - this.lastLook) > 0.7 && this.blink.t < 0) this.blink.next = 0;
+        this.lastLook = ty;
+        const B = this.body;
+        spring(this.head.yaw, ty, dt, 55, 11);
+        spring(this.head.pitch, -tp + this.dip * 0.06, dt, 70, 10);
+        spring(this.head.roll, c.tilt || 0, dt, 40, 8);
+        this.headYaw.rotation.y = this.head.yaw.x - B.rotation.y;
+        this.headTilt.rotation.x = this.head.pitch.x - B.rotation.x * 0.7;
+        this.headTilt.rotation.z = this.head.roll.x - B.rotation.z * 0.5;
+
+        // blinking (sometimes twice)
+        const bl = this.blink;
+        if (c.blink && bl.t < 0) bl.next = 0;
+        bl.next -= dt;
+        if (bl.next <= 0 && bl.t < 0) { bl.t = 0; bl.dur = Math.random() < 0.22 ? 0.44 : 0.17; bl.next = 2 + Math.random() * 3.5; }
+        let close = 0;
+        if (bl.t >= 0) {
+          bl.t += dt;
+          close = bl.dur > 0.3 ? Math.max(hump(bl.t, 0, 0.17), hump(bl.t, 0.25, 0.42)) : hump(bl.t, 0, 0.17);
+          if (bl.t >= bl.dur) bl.t = -1;
+        }
+        const sq = spring(this.squint, c.happy ? 1 : 0, dt, 50, 10);
+        const pu = spring(this.pupil, c.dilate || 1, dt, 40, 9);
+        // eyes lead the head, with small idle darts
+        const S = this.saccade;
+        S.t -= dt;
+        if (S.t <= 0) { S.t = 0.6 + Math.random() * 1.6; S.x = (Math.random() - 0.5) * 0.008; S.y = (Math.random() - 0.5) * 0.006; }
+        const lead = clamp((ty - this.head.yaw.x) * 0.035, -0.016, 0.016);
+        for (const E of this.eyes) {
+          E.pod.rotation.set(0, E.side * 0.05, -E.side * (0.17 - 0.32 * sq) + (E.side > 0 ? 0.1 : 0.03) * (c.tilt ? Math.sign(c.tilt) : 0));
+          E.lens.scale.y = Math.max(0.06, (1 - close * 0.94) * (1 - sq * 0.3));
+          E.iris.scale.setScalar(pu);
+          E.iris.position.x += (lead + S.x - E.iris.position.x) * damp(25, dt);
+          E.iris.position.y += (S.y - E.iris.position.y) * damp(25, dt);
+        }
+      }
+
+      poseArms(dt, c) {
+        const sh = Math.sin(this.h), ch = Math.cos(this.h);
+        const lz = (f) => (f.pos.x - this.x) * sh + (f.pos.z - this.z) * ch;
+        const dl = lz(this.feet[0]) - lz(this.feet[1]);   // left foot ahead of right
+        const wave = c.wave || 0, admire = c.admire || 0;
+        for (const A of this.arms) {
+          let rx = clamp(dl * 3.2 * A.side, -0.55, 0.55), rz = A.side * 0.1, ex = -0.35, ez = 0, open = 0;
+          rx = lerp(rx, -0.8, admire); ex = lerp(ex, -0.95, admire); rz = lerp(rz, -A.side * 0.16, admire); open = Math.max(open, admire * 0.6);
+          if (A.side < 0) {
+            rz = lerp(rz, -2.45, wave); rx = lerp(rx, -0.3, wave); ex = lerp(ex, -0.1, wave);
+            ez = wave * 0.5 * Math.sin(this.t * 10); open = Math.max(open, wave);
+          } else rz = lerp(rz, 0.35, wave * 0.6);
+          const k = damp(12, dt);
+          A.rx += (rx - A.rx) * k; A.rz += (rz - A.rz) * k; A.ex += (ex - A.ex) * k; A.ez += (ez - A.ez) * damp(20, dt); A.open += (open - A.open) * k;
+          A.sh.rotation.set(A.rx, 0, A.rz);
+          A.el.rotation.set(A.ex, 0, A.ez);
+          for (const F of A.fingers) { F.f.position.x = F.s * (0.017 + 0.012 * A.open); F.f.rotation.z = F.s * 0.35 * A.open; }
+        }
+      }
+
+      poseLights(dt, c) {
+        this.flash = Math.max(0, this.flash - dt * 5);
+        const party = c.happy || c.admire;
+        const level = party ? (Math.floor(this.t * 6) % 2 ? 5 : 4) : Math.abs(this.v) > 0.05 ? 3 + (this.steps % 3) : 4;
+        this.bars.forEach((b, i) => { b.material = i < level ? MAT.accent : MAT.off; });
+        this.led.material = this.flash > 0.2 || (party && Math.sin(this.t * 14) > 0) ? MAT.accent : MAT.off;
+      }
+    }
+
+    // ================================================================ scene
+    const canvas = $('#world');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.toneMapping = THREE.NeutralToneMapping;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    const scene = new THREE.Scene();
+    scene.background = HORIZON.clone();
+    scene.fog = new THREE.Fog(HORIZON.clone(), FOG_NEAR, FOG_FAR);
+    scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+    scene.environmentIntensity = 0.75;
+    const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 90);
+
+    scene.add(new THREE.HemisphereLight(0xeef1f5, 0xe2ddd3, 1.35));
+    const key = new THREE.DirectionalLight(0xfff3e4, 2.5);
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048);
+    Object.assign(key.shadow.camera, { left: -3.5, right: 3.5, top: 3.5, bottom: -3.5, near: 0.1, far: 12 });
+    key.shadow.camera.updateProjectionMatrix();
+    key.shadow.bias = -0.0004; key.shadow.normalBias = 0.012;
+    scene.add(key, key.target);
+
+    const sky = new THREE.Mesh(new THREE.SphereGeometry(40, 32, 16), new THREE.ShaderMaterial({
+      side: THREE.BackSide, depthWrite: false, fog: false,
+      uniforms: { uTop: { value: SKY_TOP.clone() }, uHorizon: { value: HORIZON.clone() } },
+      vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position = p.xyww; }',
+      fragmentShader: `uniform vec3 uTop, uHorizon; varying vec3 vD;
+        void main(){ float h = clamp(vD.y, 0.0, 1.0); gl_FragColor = vec4(mix(uHorizon, uTop, pow(h, 0.55)), 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+        }`,
+    }));
+    sky.renderOrder = -10; sky.frustumCulled = false;
+    scene.add(sky);
+
+    // endless studio floor: slab joints every 2, a dot grid every 0.5, haze into the horizon
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(70, 70), new THREE.ShaderMaterial({
+      uniforms: { uFloor: { value: FLOOR.clone() }, uInk: { value: INK.clone() }, uHorizon: { value: HORIZON.clone() } },
+      vertexShader: /* glsl */`
+        varying vec2 vW; varying float vDepth;
+        void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xz; vec4 mv = viewMatrix * w; vDepth = -mv.z; gl_Position = projectionMatrix * mv; }`,
+      fragmentShader: /* glsl */`
+        uniform vec3 uFloor, uInk, uHorizon;
+        varying vec2 vW; varying float vDepth;
+        float aa(float d, float w){ return 1.0 - smoothstep(-w, w, d); }
+        float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float noise(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f*f*(3.0-2.0*f);
+          return mix(mix(hash(i), hash(i+vec2(1,0)), u.x), mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), u.x), u.y); }
+        void main(){
+          vec2 p = vW, fw = fwidth(p);
+          vec3 col = uFloor * (1.0 + (noise(p * 1.3) - 0.5) * 0.03 + (noise(p * 7.0) - 0.5) * 0.012);
+          vec2 j = abs(fract(p / 2.0 + 0.5) - 0.5) * 2.0;
+          float joint = max(aa(j.x - 0.002, fw.x), aa(j.y - 0.002, fw.y));
+          col = mix(col, uInk, joint * 0.08);
+          vec2 g = (fract(p / 0.5 + 0.5) - 0.5) * 0.5;
+          float dd = length(g);
+          float dots = aa(dd - 0.012, fwidth(dd) + 1e-4) * (1.0 - smoothstep(4.0, 11.0, vDepth));
+          col = mix(col, uInk, dots * 0.14);
+          col = mix(col, uHorizon, smoothstep(${FOG_NEAR.toFixed(1)}, ${FOG_FAR.toFixed(1)}, vDepth));
+          gl_FragColor = vec4(col, 1.0);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }`,
+    }));
+    floor.rotation.x = -Math.PI / 2;
+    scene.add(floor);
+    const shadowFloor = new THREE.Mesh(new THREE.PlaneGeometry(70, 70), new THREE.ShadowMaterial({ opacity: 0.15, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }));
+    shadowFloor.rotation.x = -Math.PI / 2; shadowFloor.receiveShadow = true;
+    scene.add(shadowFloor);
+
+    const blobTex = radialTexture(0.42);
+    const blobGeo = new THREE.PlaneGeometry(1, 1);
+    const blobMat = new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false });
+    function blob(size, opacity = 1) {
+      const m = new THREE.Mesh(blobGeo, opacity === 1 ? blobMat : blobMat.clone());
+      m.material.opacity = opacity;
+      m.rotation.x = -Math.PI / 2; m.scale.setScalar(size); m.position.y = 0.0015;
+      scene.add(m);
+      return m;
+    }
+
+    // ================================================================ props: sparse studio objects on a hashed grid
+    const CELL = 3.2, RANGE = 6;
+    const PG = {
+      ball: new THREE.SphereGeometry(0.22, 40, 24),
+      block: new RoundedBoxGeometry(0.4, 0.4, 0.4, 3, 0.05),
+      pillar: new THREE.CylinderGeometry(0.15, 0.15, 0.8, 40),
+      pillarCap: new THREE.CylinderGeometry(0.158, 0.158, 0.025, 40),
+      cone: new THREE.ConeGeometry(0.13, 0.36, 32),
+      coneBand: new THREE.CylinderGeometry(0.0605, 0.08, 0.054, 32, 1, true),
+      coneBase: new RoundedBoxGeometry(0.3, 0.035, 0.3, 2, 0.01),
+      pot: new THREE.CylinderGeometry(0.1, 0.075, 0.15, 32),
+      potRim: new THREE.TorusGeometry(0.1, 0.012, 8, 32),
+      soil: new THREE.CircleGeometry(0.092, 24),
+      stem: new THREE.CylinderGeometry(0.006, 0.008, 0.16, 8),
+      leaf: new THREE.SphereGeometry(1, 16, 10),
+    };
+    const bandMat = MAT.white.clone(); bandMat.side = THREE.DoubleSide;
+    const props = new Map();
+    function spawnProp(i, j) {
+      if (hash(i, j, 1) > 0.36) return null;
+      const x = (i + 0.5 + (hash(i, j, 2) - 0.5) * 0.6) * CELL, z = (j + 0.5 + (hash(i, j, 3) - 0.5) * 0.6) * CELL;
+      if (Math.hypot(x, z) < 2.4) return null;
+      const k = hash(i, j, 4);
+      const type = k < 0.3 ? 'plant' : k < 0.5 ? 'ball' : k < 0.67 ? 'block' : k < 0.84 ? 'pillar' : 'cone';
+      const s = (0.85 + 0.3 * hash(i, j, 6)) * (type === 'plant' ? 1.35 : 1);
+      const g = new THREE.Group();
+      g.position.set(x, 0, z); g.rotation.y = hash(i, j, 5) * TAU; g.scale.setScalar(s);
+      const P = { key: `${i},${j}`, type, x, z, g, r: 0, top: 0, leaves: null, phase: hash(i, j, 7) * TAU };
+      if (type === 'ball') { mesh(PG.ball, MAT.white, g).position.y = 0.22; P.r = 0.22; P.top = 0.44; }
+      if (type === 'block') { mesh(PG.block, MAT.graphite, g).position.y = 0.2; P.r = 0.27; P.top = 0.4; }
+      if (type === 'pillar') { mesh(PG.pillar, MAT.white2, g).position.y = 0.4; mesh(PG.pillarCap, MAT.graphite, g).position.y = 0.79; P.r = 0.15; P.top = 0.8; }
+      if (type === 'cone') {
+        mesh(PG.coneBase, MAT.graphite, g).position.y = 0.0175;
+        mesh(PG.cone, MAT.accentSolid, g).position.y = 0.035 + 0.18;
+        mesh(PG.coneBand, bandMat, g).position.y = 0.035 + 0.36 * 0.475;
+        P.r = 0.16; P.top = 0.4;
+      }
+      if (type === 'plant') {
+        mesh(PG.pot, MAT.white, g).position.y = 0.075;
+        const rim = mesh(PG.potRim, MAT.graphite, g); rim.rotation.x = Math.PI / 2; rim.position.y = 0.15;
+        const soil = mesh(PG.soil, MAT.soil, g); soil.rotation.x = -Math.PI / 2; soil.position.y = 0.142;
+        const sprout = new THREE.Group(); sprout.position.y = 0.14; g.add(sprout);
+        mesh(PG.stem, MAT.leaf, sprout).position.y = 0.08;
+        for (const sd of [1, -1]) {
+          const lf = mesh(PG.leaf, MAT.leaf, sprout);
+          lf.scale.set(0.055, 0.011, 0.028); lf.position.set(sd * 0.047, 0.15, 0); lf.rotation.z = sd * 0.45;
+        }
+        const bud = mesh(PG.leaf, MAT.leaf, sprout); bud.scale.setScalar(0.014); bud.position.y = 0.165;
+        P.leaves = sprout; P.r = 0.11; P.top = 0.3;
+      }
+      P.r *= s; P.top *= s;
+      scene.add(g);
+      P.blob = blob(P.r * 3.2, 0.7);
+      P.blob.position.set(x, 0.0012, z);
+      return P;
+    }
+    let propClock = 0;
+    function updateProps(dt) {
+      propClock -= dt;
+      if (propClock > 0) return;
+      propClock = 0.25;
+      const ci = Math.floor(pip.x / CELL), cj = Math.floor(pip.z / CELL);
+      for (let i = ci - RANGE; i <= ci + RANGE; i++) for (let j = cj - RANGE; j <= cj + RANGE; j++) {
+        const key = `${i},${j}`;
+        if (!props.has(key)) props.set(key, spawnProp(i, j));
+      }
+      for (const [key, P] of props) {
+        const [i, j] = key.split(',').map(Number);
+        if (Math.abs(i - ci) <= RANGE && Math.abs(j - cj) <= RANGE) continue;
+        if (P) { scene.remove(P.g, P.blob); P.blob.material.dispose(); }
+        props.delete(key);
+      }
+    }
+    let near = [];
+    function nearProps(r) { near = []; for (const P of props.values()) if (P && Math.hypot(P.x - pip.x, P.z - pip.z) < r) near.push(P); return near; }
+
+    // ================================================================ footprints, rings, trail, goal flag
+    function printTexture() {
+      const c = document.createElement('canvas'); c.width = 64; c.height = 128;
+      const g = c.getContext('2d');
+      const rr = (x, y, w, h, r) => { g.beginPath(); g.roundRect(x, y, w, h, r); g.fill(); };
+      g.fillStyle = '#fff';
+      g.globalAlpha = 0.32; rr(5, 5, 54, 118, 24);
+      g.globalAlpha = 1;
+      for (let i = 0; i < 6; i++) rr(15, 16 + i * 17, 34, 7, 3.5);   // tread bars; toe at the bottom of the canvas = forward
+      return new THREE.CanvasTexture(c);
+    }
+    const printTex = printTexture(), printGeo = new THREE.PlaneGeometry(0.12, 0.21);
+    const prints = Array.from({ length: 110 }, () => {
+      const m = new THREE.Mesh(printGeo, new THREE.MeshBasicMaterial({ color: INK, map: printTex, transparent: true, opacity: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+      m.rotation.order = 'YXZ'; m.rotation.x = -Math.PI / 2; m.visible = false;
+      scene.add(m);
+      return { m, age: 99 };
+    });
+    let printI = 0;
+    const PRINT_LIFE = 26;
+
+    const rings = [], ringGeo = new THREE.RingGeometry(0.93, 1, 72);
+    function ring(x, z, { r0 = 0.05, r1 = 0.3, dur = 0.6, color = INK, opacity = 0.2 } = {}) {
+      const m = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color, transparent: true, depthWrite: false, opacity }));
+      m.rotation.x = -Math.PI / 2; m.position.set(x, 0.003, z);
+      scene.add(m);
+      rings.push({ m, t: 0, r0, r1, dur, opacity });
+    }
+
+    const TRAIL_N = 1600;
+    const trailGeo = new THREE.BufferGeometry();
+    trailGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(TRAIL_N * 3), 3));
+    trailGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(TRAIL_N * 4), 4));
+    trailGeo.setDrawRange(0, 0);
+    const trail = new THREE.Line(trailGeo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false }));
+    trail.frustumCulled = false;
+    scene.add(trail);
+    const trailPts = [];
+    let trailClock = 0;
+
+    const flag = new THREE.Group();
+    {
+      const fr = new THREE.Mesh(new THREE.RingGeometry(0.12, 0.15, 48), new THREE.MeshBasicMaterial({ color: ACCENT, transparent: true, depthWrite: false }));
+      fr.rotation.x = -Math.PI / 2; fr.position.y = 0.003; flag.add(fr);
+      const pole = axle(0.006, 0.36, MAT.graphite, flag, 8); pole.position.y = 0.18;
+      const shape = new THREE.Shape(); shape.moveTo(0, 0); shape.lineTo(0.13, -0.035); shape.lineTo(0, -0.07); shape.closePath();
+      const cloth = new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshStandardMaterial({ color: ACCENT, roughness: 0.6, side: THREE.DoubleSide }));
+      cloth.castShadow = true;
+      const hinge = new THREE.Group(); hinge.position.y = 0.36; hinge.add(cloth); flag.add(hinge);
+      flag.userData = { ring: fr, hinge };
+      flag.visible = false;
+      scene.add(flag);
+    }
+
+    // ================================================================ Pip
+    const pip = new Pip(scene);
+    const pipBlob = blob(0.7);
+    pip.onStep = (f) => {
+      const P = prints[printI++ % prints.length];
+      P.age = 0;
+      P.m.position.set(f.pos.x + Math.sin(f.yaw) * 0.025, 0.0016, f.pos.z + Math.cos(f.yaw) * 0.025);
+      P.m.rotation.y = f.yaw;
+      P.m.visible = true;
+      if (f.travel > 0.05) ring(f.pos.x, f.pos.z + 0.02, { r0: 0.05, r1: 0.17, dur: 0.45, opacity: 0.09 });
+    };
+    pip.collide = (b) => {
+      for (const P of near) {
+        const dx = b.x - P.x, dz = b.z - P.z, d = Math.hypot(dx, dz) || 1e-3, min = P.r + BODY_R;
+        if (d < min) { b.x = P.x + (dx / d) * min; b.z = P.z + (dz / d) * min; }
+      }
+    };
+
+    // ================================================================ what Pip does next (plain state machine, no brain)
+    const LABEL = { walk: 'Out for a walk', look: 'Looking around', wave: 'Waving hi', plant: 'Spotted a plant', admire: 'Admiring a plant', goto: 'Heading to your spot' };
+    const D = { state: 'walk', t: 0, dur: 8, phase: 0, pace: 1, target: null, goal: new THREE.Vector3(), best: 1e9, bestT: 0, t0: 0, clock: 0, visited: new Set(), plants: 0 };
+    const wander = [Math.random() * TAU, Math.random() * TAU];
+    const lookAt = new THREE.Vector3();
+    function setState(state, extra = {}) {
+      Object.assign(D, { state, t: 0, phase: 0 }, extra);
+      if (state === 'walk') { D.dur ??= 8; D.pace = 0.88 + Math.random() * 0.24; }
+    }
+    function label() { return D.state === 'plant' && D.phase === 1 ? LABEL.admire : LABEL[D.state]; }
+
+    // Steer toward a direction, sliding around whatever is in the way.
+    function steer(dx, dz, ignore) {
+      const fx = Math.sin(pip.h), fz = Math.cos(pip.h);
+      const m = Math.hypot(dx, dz) || 1; dx /= m; dz /= m;
+      for (const P of near) {
+        if (P === ignore) continue;
+        const ox = pip.x - P.x, oz = pip.z - P.z, d = Math.hypot(ox, oz) || 1e-3;
+        const gap = d - P.r - BODY_R;
+        if (gap > 0.95) continue;
+        const ahead = -(ox * fx + oz * fz) / d;
+        if (ahead < -0.3) continue;
+        const s = clamp(1 - gap / 0.95, 0, 1.4) * (0.5 + 0.5 * Math.max(0, ahead));
+        const ux = ox / d, uz = oz / d;
+        let tx = -uz, tz = ux;
+        if (tx * dx + tz * dz < 0) { tx = -tx; tz = -tz; }
+        dx += (ux * 0.8 + tx * 1.2) * s; dz += (uz * 0.8 + tz * 1.2) * s;
+      }
+      return clamp(angTo(pip.h, Math.atan2(dx, dz)) * 1.8, -1.25, 1.25);
+    }
+    function ahead(dist, y, yaw = 0) { return lookAt.set(pip.x + Math.sin(pip.h + yaw) * dist, y, pip.z + Math.cos(pip.h + yaw) * dist); }
+    function interesting() {
+      let best = null, bd = 2.8;
+      for (const P of near) {
+        const dx = P.x - pip.x, dz = P.z - pip.z, d = Math.hypot(dx, dz);
+        if (d < bd && Math.abs(angTo(pip.h, Math.atan2(dx, dz))) < 1.1) { best = P; bd = d; }
+      }
+      return best;
+    }
+
+    function think(dt) {
+      D.t += dt; D.clock += dt;
+      const c = { vt: 0, wt: 0, look: null, tilt: 0, happy: false, dilate: 1, wave: 0, admire: 0, bend: 0, blink: false };
+
+      if (D.state === 'walk') {
+        const w = 0.5 * Math.sin(D.clock * 0.21 + wander[0]) + 0.32 * Math.sin(D.clock * 0.53 + wander[1]);
+        c.wt = steer(Math.sin(pip.h + w * 0.3), Math.cos(pip.h + w * 0.3));
+        c.vt = WALK_V * D.pace * (1 - 0.35 * Math.min(1, Math.abs(c.wt) / 1.25));
+        const P = interesting();
+        c.look = P ? lookAt.set(P.x, P.top, P.z) : ahead(3, 0.7, 0.3 * Math.sin(D.clock * 0.7));
+        if (P && P.type === 'plant' && !D.visited.has(P.key) && D.t > 1.5) setState('plant', { target: P });
+        else if (D.t > D.dur) {
+          const r = Math.random();
+          if (r < 0.28) setState('look'); else if (r < 0.46) setState('wave'); else setState('walk', { dur: 7 + Math.random() * 7 });
+        }
+      } else if (D.state === 'look') {
+        const k = D.t;
+        const yaw = k < 0.5 ? 0 : k < 1.6 ? 0.95 : k < 2.8 ? -0.95 : 0;
+        c.look = ahead(3, k > 0.8 && k < 2.8 ? 1.2 : 0.8, yaw);
+        c.tilt = k > 0.8 && k < 1.6 ? 0.2 : k > 2.1 && k < 2.8 ? -0.2 : 0;
+        c.dilate = 1.2;
+        if (k > 3.6) setState('walk', { dur: 6 + Math.random() * 6 });
+      } else if (D.state === 'wave') {
+        const cp = camera.position;
+        const err = angTo(pip.h, Math.atan2(cp.x - pip.x, cp.z - pip.z));
+        c.look = cp;
+        if (D.phase === 0) {
+          c.wt = clamp(err * 3, -1.5, 1.5);
+          if (Math.abs(err) < 0.3 || D.t > 1.8) { D.phase = 1; D.t0 = D.t; c.blink = true; }
+        } else {
+          const k = D.t - D.t0;
+          c.wt = clamp(err * 2, -0.8, 0.8) * (k < 2 ? 1 : 0);
+          c.wave = k < 2.3 ? 1 : 0; c.happy = true; c.tilt = 0.18;
+          if (k > 3.0) setState('walk', { dur: 6 + Math.random() * 6 });
+        }
+      } else if (D.state === 'plant') {
+        const P = D.target;
+        if (D.phase === 0) {
+          const ox = pip.x - P.x, oz = pip.z - P.z, d = Math.hypot(ox, oz) || 1;
+          const stand = P.r + BODY_R + 0.16;
+          const gx = P.x + (ox / d) * stand - pip.x, gz = P.z + (oz / d) * stand - pip.z, gd = Math.hypot(gx, gz);
+          c.wt = steer(gx, gz, P);
+          c.vt = WALK_V * clamp(gd / 0.6, 0.25, 1);
+          c.look = lookAt.set(P.x, P.top, P.z); c.dilate = 1.25;
+          if (gd < 0.12 || d < stand + 0.06 || D.t > 14) { D.phase = 1; D.t = 0; c.blink = true; }
+        } else {
+          c.wt = clamp(angTo(pip.h, Math.atan2(P.x - pip.x, P.z - pip.z)) * 3, -1.2, 1.2);
+          c.look = lookAt.set(P.x, P.top * 0.8, P.z);
+          c.bend = D.t > 0.3 ? 1 : 0; c.admire = D.t > 0.5 && D.t < 3.2 ? 1 : 0; c.dilate = 1.4;
+          c.tilt = D.t < 1.8 ? 0.24 : -0.18;
+          if (P.leaves) P.wiggle = 1;
+          if (D.t > 3.8) { D.visited.add(P.key); D.plants++; setState('walk', { dur: 5 + Math.random() * 6 }); }
+        }
+      } else if (D.state === 'goto') {
+        const gx = D.goal.x - pip.x, gz = D.goal.z - pip.z, gd = Math.hypot(gx, gz);
+        c.wt = steer(gx, gz);
+        c.vt = HURRY_V * clamp(gd / 0.5, 0.3, 1);
+        c.look = lookAt.set(D.goal.x, 0.1, D.goal.z);
+        if (gd < D.best - 0.05) { D.best = gd; D.bestT = D.t; }
+        if (gd < 0.14) { ring(D.goal.x, D.goal.z, { r0: 0.14, r1: 0.5, dur: 0.7, color: ACCENT, opacity: 0.5 }); flag.visible = false; setState('wave'); }
+        else if (D.t - D.bestT > 3) { flag.visible = false; setState('look'); }
+      }
+      return c;
+    }
+
+    function sendTo(x, z) {
+      D.goal.set(x, 0, z);
+      setState('goto', { best: 1e9, bestT: 0 });
+      flag.position.set(x, 0, z); flag.visible = true; flag.userData.t = 0;
+      ring(x, z, { r0: 0.05, r1: 0.3, dur: 0.5, color: ACCENT, opacity: 0.45 });
+    }
+
+    // ================================================================ camera: orbits around Pip between shots
+    const SHOT = {
+      follow: { az: Math.PI + 0.16, dist: 4.6, y: 2.3, la: 0.6, ly: 0.4 },
+      front: { az: 0.4, dist: 3.5, y: 0.95, la: 0.15, ly: 0.5 },
+      side: { az: Math.PI / 2 - 0.3, dist: 3.9, y: 1.1, la: 0.3, ly: 0.45 },
+    };
+    const AUTO = [['follow', 13], ['front', 8], ['follow', 9], ['side', 7]];
+    const cam = { mode: 'auto', i: 0, t: 0, heading: 0, ...SHOT.follow, cx: 0, cz: 0 };
+    const _look = new THREE.Vector3();
+    function updateCamera(dt) {
+      let shot = cam.mode;
+      if (shot === 'auto') {
+        cam.t += dt;
+        if (cam.t > AUTO[cam.i][1]) { cam.i = (cam.i + 1) % AUTO.length; cam.t = 0; }
+        shot = AUTO[cam.i][0];
+        if (D.state === 'wave' || (D.state === 'plant' && D.phase === 1)) shot = 'front';
+      }
+      const S = SHOT[shot];
+      if (!(D.state === 'wave' && shot !== 'front')) cam.heading = wrap(cam.heading + angTo(cam.heading, pip.h) * damp(0.9, dt));
+      const k = damp(1.3, dt);
+      cam.az = wrap(cam.az + angTo(cam.az, S.az) * k);
+      cam.dist += (S.dist - cam.dist) * k; cam.y += (S.y - cam.y) * k; cam.la += (S.la - cam.la) * k; cam.ly += (S.ly - cam.ly) * k;
+      cam.cx += (pip.x - cam.cx) * damp(4, dt); cam.cz += (pip.z - cam.cz) * damp(4, dt);
+      const A = cam.heading + cam.az, H = cam.heading;
+      camera.position.set(cam.cx + Math.sin(A) * cam.dist, cam.y, cam.cz + Math.cos(A) * cam.dist);
+      camera.lookAt(_look.set(cam.cx + Math.sin(H) * cam.la, cam.ly, cam.cz + Math.cos(H) * cam.la));
+    }
+
+    // ================================================================ per-frame effects
+    function updateFx(dt) {
+      for (const P of prints) {
+        if (P.age > PRINT_LIFE) continue;
+        P.age += dt;
+        P.m.material.opacity = 0.2 * (1 - Math.min(1, P.age / PRINT_LIFE));
+        P.m.visible = P.age < PRINT_LIFE;
+      }
+      for (let i = rings.length - 1; i >= 0; i--) {
+        const r = rings[i];
+        r.t += dt / r.dur;
+        const e = 1 - Math.pow(1 - Math.min(1, r.t), 3);
+        r.m.scale.setScalar(r.r0 + (r.r1 - r.r0) * e);
+        r.m.material.opacity = r.opacity * (1 - Math.min(1, r.t));
+        if (r.t >= 1) { scene.remove(r.m); r.m.material.dispose(); rings.splice(i, 1); }
+      }
+      // trail: a faint plotter line where Pip has been
+      trailClock -= dt;
+      if (trailClock <= 0) {
+        trailClock = 0.05;
+        trailPts.push(pip.x, pip.z);
+        if (trailPts.length > TRAIL_N * 2) trailPts.splice(0, 2);
+      }
+      const tp = trailGeo.attributes.position.array, tc = trailGeo.attributes.color.array, n = trailPts.length / 2;
+      for (let i = 0; i < n; i++) {
+        tp[i * 3] = trailPts[i * 2]; tp[i * 3 + 1] = 0.002; tp[i * 3 + 2] = trailPts[i * 2 + 1];
+        tc[i * 4] = INK.r; tc[i * 4 + 1] = INK.g; tc[i * 4 + 2] = INK.b; tc[i * 4 + 3] = 0.02 + 0.2 * ((i + 1) / n);
+      }
+      trailGeo.setDrawRange(0, n);
+      trailGeo.attributes.position.needsUpdate = true; trailGeo.attributes.color.needsUpdate = true;
+      // plants sway; they wiggle while Pip admires them
+      for (const P of near) {
+        if (!P.leaves) continue;
+        P.wiggle = Math.max(0, (P.wiggle || 0) - dt * 0.8);
+        P.leaves.rotation.z = Math.sin(pip.t * 1.6 + P.phase) * 0.05 + Math.sin(pip.t * 9) * 0.12 * P.wiggle;
+      }
+      if (flag.visible) {
+        const U = flag.userData;
+        U.t = (U.t || 0) + dt;
+        U.hinge.rotation.y = Math.sin(U.t * 5) * 0.25;
+        U.ring.scale.setScalar(1 + 0.12 * Math.sin(U.t * 4));
+      }
+      pipBlob.position.set(pip.x, 0.0015, pip.z);
+      key.position.set(pip.x + 2.3, 3.4, pip.z + 1.9);
+      key.target.position.set(pip.x, 0, pip.z + 0.3);
+    }
+
+    // ================================================================ UI
+    let paused = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const PLAY = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 2.8v10.4L13 8z" fill="currentColor"/></svg><span>Play</span>';
+    const PAUSE = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="2.8" width="3.2" height="10.4" rx="1" fill="currentColor"/><rect x="9.3" y="2.8" width="3.2" height="10.4" rx="1" fill="currentColor"/></svg><span>Pause</span>';
+    function setPaused(p) {
+      paused = p;
+      const b = $('#btn-play');
+      b.innerHTML = p ? PLAY : PAUSE;
+      b.setAttribute('aria-label', p ? 'Play' : 'Pause');
+      showStatus();
+    }
+    function setCam(mode) {
+      cam.mode = mode; cam.t = 0;
+      document.querySelectorAll('[data-cam]').forEach((b) => { b.classList.toggle('on', b.dataset.cam === mode); b.setAttribute('aria-pressed', b.dataset.cam === mode); });
+    }
+    function sayHi() { if (D.state !== 'wave') setState('wave'); if (paused) setPaused(false); }
+    function showStatus() {
+      $('#doing').textContent = paused ? 'Paused' : label();
+      $('#st-steps').textContent = pip.steps.toLocaleString();
+      const m = pip.dist * M_PER_UNIT;
+      $('#st-dist').textContent = m < 100 ? m.toFixed(1) : Math.round(m).toLocaleString();
+      $('#st-plants').textContent = D.plants;
+    }
+    let hintGone = false;
+    function hideHint() { if (!hintGone) { hintGone = true; $('#hint').classList.add('gone'); } }
+    if (matchMedia('(pointer: coarse)').matches) $('#hint-verb').textContent = 'Tap';
+    setTimeout(hideHint, 14000);
+
+    $('#btn-play').addEventListener('click', () => setPaused(!paused));
+    $('#btn-hi').addEventListener('click', sayHi);
+    document.querySelectorAll('[data-cam]').forEach((b) => b.addEventListener('click', () => setCam(b.dataset.cam)));
+    const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), hit = new THREE.Vector3(), ground = new THREE.Plane(UP, 0);
+    canvas.addEventListener('click', (e) => {
+      const r = canvas.getBoundingClientRect();
+      ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      ray.setFromCamera(ndc, camera);
+      if (!ray.ray.intersectPlane(ground, hit) || Math.hypot(hit.x - pip.x, hit.z - pip.z) > 14) return;
+      sendTo(hit.x, hit.z);
+      hideHint();
+      if (paused) setPaused(false);
+    });
+    addEventListener('keydown', (e) => {
+      if (e.target.closest?.('button') && (e.key === ' ' || e.key === 'Enter')) return;
+      const k = e.key.toLowerCase();
+      if (k === ' ' || k === 'p') { e.preventDefault(); setPaused(!paused); }
+      else if (k === 'w') sayHi();
+      else if (k === 'c') { const order = ['auto', 'follow', 'front', 'side']; setCam(order[(order.indexOf(cam.mode) + 1) % order.length]); }
+      else if (k === 'h') document.body.classList.toggle('rec');
+    });
+
+    function resize() {
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      if (!w || !h) return;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.fov = w / h < 0.8 ? 42 : 30;             // phones in portrait: widen so Pip fits
+      camera.updateProjectionMatrix();
+    }
+    addEventListener('resize', resize);
+    resize();
+
+    // ================================================================ loop
+    let last = performance.now(), hud = 0;
+    function step(dt) {
+      updateProps(dt);
+      nearProps(4);
+      pip.update(dt, think(dt));
+      updateFx(dt);
+    }
+    function frame(now) {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      if (!paused) step(dt);
+      updateCamera(dt);
+      const snap = (v) => Math.round(v / 5) * 5;
+      floor.position.set(snap(pip.x), 0, snap(pip.z));
+      shadowFloor.position.set(snap(pip.x), 0.0005, snap(pip.z));
+      sky.position.copy(camera.position);
+      hud -= dt;
+      if (hud <= 0) { hud = 0.2; showStatus(); }
+      renderer.render(scene, camera);
+      requestAnimationFrame(frame);
+    }
+
+    updateProps(1);
+    nearProps(4);
+    for (let i = 0; i < 30; i++) pip.update(1 / 60, { vt: 0, wt: 0 });
+    cam.heading = pip.h; cam.cx = pip.x; cam.cz = pip.z;
+    updateCamera(1);
+    setPaused(paused);
+    setCam('auto');
+    renderer.render(scene, camera);
+    $('#loader').classList.add('gone');
+    window.pip = { pip, D, cam, props, setState, setCam, sendTo, sayHi, setPaused, step, updateCamera, render: () => renderer.render(scene, camera) };
+    requestAnimationFrame((t) => { last = t; frame(t); });
+  </script>
+</body>
+</html>
