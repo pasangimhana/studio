@@ -9,17 +9,19 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     /* Layout: full-bleed isometric terrain map; name top-left, status card top-right, dark control dock bottom-centre.
-       Light only by design: the map is paper, sage and water, with ink grid crosses and one orange accent. */
+       Light only by design: the map is paper, sage and water; the accents are the walker's navy armour and blue glow. */
     :root {
       --paper: #ece7dc;
       --card: rgba(255, 255, 255, 0.92);
       --ink: #2a2c29;
       --dim: #75746c;
       --hair: rgba(42, 44, 41, 0.1);
-      --accent: #E55B2B;
-      --dock: #232522;
-      --dock-fg: #f3f0e8;
-      --dock-dim: rgba(243, 240, 232, 0.45);
+      --accent: #2d5fb8;
+      --accent-hi: #3a70cc;
+      --navy: #2f4169;
+      --dock: #23262c;
+      --dock-fg: #f1f0ec;
+      --dock-dim: rgba(241, 240, 236, 0.45);
       --shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 18px 44px rgba(42, 44, 41, 0.12);
       --sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
       --mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
@@ -77,7 +79,7 @@
     .dbtn.icon svg { width: 19px; height: 19px; }
     .dbtn.flip svg { transform: scaleX(-1); }
     .dbtn.play { background: var(--accent); color: #fff; padding: 0 22px 0 18px; }
-    .dbtn.play:hover { background: #ef6a3b; }
+    .dbtn.play:hover { background: var(--accent-hi); }
     .dbtn kbd { margin-left: 2px; color: var(--dock-dim); border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 5px; padding: 1px 6px; }
 
     #loader { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: var(--paper); transition: opacity 0.8s ease; }
@@ -119,13 +121,13 @@
   </script>
 </head>
 <body>
-  <canvas id="world" aria-label="Pip, a small white box robot on two legs, walking across a terrain map"></canvas>
+  <canvas id="world" aria-label="Pip, an armoured two-legged walker with three companion drones, crossing a terrain map"></canvas>
 
-  <header id="top"><h1>Pip<em>.</em></h1><p>A small box on two legs, out for a walk.</p></header>
+  <header id="top"><h1>Pip<em>.</em></h1><p>A little walker and its three drones, out on patrol.</p></header>
 
   <aside id="status" class="card" aria-live="polite">
     <div class="kicker">Now</div>
-    <div id="doing">Out for a walk</div>
+    <div id="doing">On patrol</div>
     <div class="stats">
       <div><b id="st-steps">0</b><span>steps</span></div>
       <div><b id="st-dist">0.0</b><span>meters</span></div>
@@ -149,7 +151,7 @@
     <button id="btn-hi" class="dbtn" type="button">Say hi<kbd>W</kbd></button>
   </nav>
 
-  <div id="loader"><h1>Pip<em>.</em></h1><div class="ld">surveying the terrain</div></div>
+  <div id="loader"><h1>Pip<em>.</em></h1><div class="ld">powering up</div></div>
 
   <script type="module">
     import * as THREE from 'three';
@@ -165,21 +167,24 @@
     // ---------------------------------------------------------------- map look
     const BG = new THREE.Color('#ece7dc');
     const INK = new THREE.Color('#2a2c29');
-    const ACCENT = new THREE.Color('#E55B2B');
+    const ACCENT = new THREE.Color('#2d5fb8');
+    const GLOW = new THREE.Color('#4cc8ff');
     const LAND = { deep: '#5d8886', sand: '#e6d5ae', low: '#bccb98', mid: '#9fb47b', high: '#869d67', stone: '#d2c9b2', water: '#86afad' };
     const WATER = -0.3;            // lake level
     const GRID = 2;                // one map square (world units); a cross marks every corner
     const CAM_DIST = 40, CAM_EL = 0.6, VIEW_H = 3.6;
     const FOG_NEAR = 9, FOG_FAR = 15;
 
-    // ---------------------------------------------------------------- Pip's body plan (world units; Pip stands ~1.0 tall)
-    const WALK_V = 0.5, HURRY_V = 0.7;
-    const T_SWING = 0.34, LIFT = 0.075;
-    const STANCE_W = 0.15, HIP_X = 0.15;
-    const PELVIS = 0.44, ANKLE_H = 0.05, TOE = 0.125, HEEL = 0.075;
-    const L1 = 0.25, L2 = 0.25;
-    const BODY_R = 0.34;
-    const M_PER_UNIT = 0.5;        // odometer: Pip is about 50 cm tall
+    // ---------------------------------------------------------------- the walker's body plan (world units; it stands ~1.2 tall)
+    const WALK_V = 0.42, HURRY_V = 0.6;
+    const T_SWING = 0.42, LIFT = 0.1;
+    const STANCE_W = 0.27, HIP_X = 0.3;
+    const PELVIS = 0.56, ANKLE_H = 0.1, TOE = 0.19, HEEL = 0.11;
+    const L1 = 0.26, L2 = 0.27;
+    const BODY_R = 0.5;
+    const SX = 0.46, SY = 0.33, SZ = 0.4, CY = 0.33, CZ = 0.02;   // egg-shaped hull: semi-axes and centre (body frame)
+    const EYE_Y = 0.34;
+    const M_PER_UNIT = 1;
 
     // Radial haze around the camera target (instead of depth fog) so the map fades out like a vignette.
     THREE.ShaderChunk.fog_vertex = `#ifdef USE_FOG
@@ -225,47 +230,62 @@
     const dry = (x, z, m = 0.05) => height(x, z) > WATER + m;
     const forestAt = (x, z) => perlin(x / 7 + 50.5, z / 7 - 30.5);
 
-    // ---------------------------------------------------------------- materials
+    // ---------------------------------------------------------------- materials (armour white, navy trim, dark mechanics, blue glow)
     const MAT = {
-      white: new THREE.MeshPhysicalMaterial({ color: 0xf6f5f1, roughness: 0.26, clearcoat: 0.8, clearcoatRoughness: 0.12 }),
-      white2: new THREE.MeshPhysicalMaterial({ color: 0xe4e3dd, roughness: 0.45, clearcoat: 0.3 }),
-      graphite: new THREE.MeshStandardMaterial({ color: 0x222421, roughness: 0.4, metalness: 0.35 }),
-      steel: new THREE.MeshStandardMaterial({ color: 0xc4c4be, roughness: 0.18, metalness: 1 }),
-      rubber: new THREE.MeshStandardMaterial({ color: 0x2c2d2b, roughness: 0.9 }),
-      glass: new THREE.MeshPhysicalMaterial({ color: 0x060606, roughness: 0.05, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.02 }),
-      accent: new THREE.MeshBasicMaterial({ color: ACCENT }),
-      accentSolid: new THREE.MeshPhysicalMaterial({ color: ACCENT, roughness: 0.35, clearcoat: 0.6 }),
-      off: new THREE.MeshStandardMaterial({ color: 0x4a4944, roughness: 0.5 }),
+      armor: new THREE.MeshPhysicalMaterial({ color: 0xe6e5e1, roughness: 0.46, clearcoat: 0.35, clearcoatRoughness: 0.3 }),
+      navy: new THREE.MeshPhysicalMaterial({ color: 0x2f4169, roughness: 0.42, clearcoat: 0.3, clearcoatRoughness: 0.25 }),
+      mech: new THREE.MeshStandardMaterial({ color: 0x2b2c30, roughness: 0.5, metalness: 0.45 }),
+      mech2: new THREE.MeshStandardMaterial({ color: 0x3e4046, roughness: 0.38, metalness: 0.55 }),
+      steel: new THREE.MeshStandardMaterial({ color: 0xa9abb0, roughness: 0.22, metalness: 1 }),
+      glass: new THREE.MeshPhysicalMaterial({ color: 0x05070b, roughness: 0.04, metalness: 0.2, clearcoat: 1, clearcoatRoughness: 0.02 }),
+      glow: new THREE.MeshBasicMaterial({ color: GLOW, toneMapped: false }),
+      glowHot: new THREE.MeshBasicMaterial({ color: 0xc9f3ff, toneMapped: false }),
+      glowDim: new THREE.MeshBasicMaterial({ color: 0x2a6178, toneMapped: false }),
       prop: new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85 }),
       propGhost: new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85, transparent: true, opacity: 0.28, depthWrite: false }),
     };
+    MAT.crest = MAT.navy.clone(); MAT.crest.side = THREE.DoubleSide;
+    // hull: the armour material with panel seams and panel shading drawn in object space
+    MAT.hull = MAT.armor.clone();
+    MAT.hull.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vHull;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvHull = position;');
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vHull;\nfloat seamAt(float f, float c, float w) { return 1.0 - smoothstep(w, w + 1.5 * fwidth(f), abs(f - c)); }')
+        .replace('#include <color_fragment>', `#include <color_fragment>
+          vec3 n = vHull / vec3(${SX}, ${SY}, ${SZ});
+          float side = step(0.33, abs(n.x)), front = step(0.62, n.z);
+          float seam = seamAt(abs(n.x), 0.33, 0.004) * step(-0.25, n.y);
+          seam = max(seam, seamAt(n.y, -0.3, 0.005));
+          seam = max(seam, seamAt(n.z, 0.62, 0.005) * side * step(-0.3, n.y));
+          seam = max(seam, seamAt(n.y, 0.4, 0.005) * side * (1.0 - front));
+          seam = max(seam, seamAt(n.z, -0.4, 0.005) * step(-0.3, n.y));
+          diffuseColor.rgb *= n.y < -0.3 ? 0.87 : (side > 0.5 && front < 0.5 && n.y < 0.4 ? 0.94 : 1.0);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.09, 0.1, 0.12), seam * 0.8);`);
+    };
+
     function mesh(geo, mat, parent) {
       const m = new THREE.Mesh(geo, mat);
       m.castShadow = true; m.receiveShadow = true;
       parent?.add(m);
       return m;
     }
-    const rbox = (w, h, d, r, mat, parent, seg = 4) => mesh(new RoundedBoxGeometry(w, h, d, seg, r), mat, parent);
+    const rbox = (w, h, d, r, mat, parent, seg = 3) => mesh(new RoundedBoxGeometry(w, h, d, seg, r), mat, parent);
     const sphere = (r, mat, parent, seg = 32) => mesh(new THREE.SphereGeometry(r, seg, Math.round(seg * 0.66)), mat, parent);
     const axle = (r, h, mat, parent, seg = 24) => mesh(new THREE.CylinderGeometry(r, r, h, seg), mat, parent);
-    // Tapered limb with rounded ends, from the origin up +Y for `len`.
-    function limbGeo(r0, r1, len) {
-      const pts = [];
-      for (let i = 0; i <= 8; i++) { const a = -Math.PI / 2 + (i / 8) * (Math.PI / 2); pts.push(new THREE.Vector2(Math.cos(a) * r0, Math.sin(a) * r0)); }
-      for (let i = 0; i <= 8; i++) { const a = (i / 8) * (Math.PI / 2); pts.push(new THREE.Vector2(Math.cos(a) * r1, len + Math.sin(a) * r1)); }
-      return new THREE.LatheGeometry(pts, 28);
-    }
-    function roundedRect(w, h, r) {
-      const s = new THREE.Shape(), x = -w / 2, y = -h / 2;
-      s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r);
-      s.lineTo(x + w, y + h - r); s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-      s.lineTo(x + r, y + h); s.quadraticCurveTo(x, y + h, x, y + h - r);
-      s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y);
-      return s;
-    }
+    const dome = (r) => new THREE.SphereGeometry(r, 40, 12, 0, TAU, 0, Math.PI / 2).rotateX(Math.PI / 2);   // cap facing +z
     const _d = new THREE.Vector3();
-    function aim(m, a, b) { m.position.copy(a); _d.subVectors(b, a).normalize(); m.quaternion.setFromUnitVectors(UP, _d); }
     function orient(m, axis) { m.quaternion.setFromUnitVectors(UP, _d.copy(axis).normalize()); }
+    // Object from a to b along its +Y, with +Z turned toward `fwd` (keeps armour facing forward).
+    const _ay = new THREE.Vector3(), _az = new THREE.Vector3(), _ax = new THREE.Vector3(), _am = new THREE.Matrix4();
+    function aimBasis(o, a, b, fwd) {
+      _ay.subVectors(b, a).normalize();
+      _az.copy(fwd).addScaledVector(_ay, -fwd.dot(_ay)).normalize();
+      _ax.crossVectors(_ay, _az);
+      o.position.copy(a);
+      o.quaternion.setFromRotationMatrix(_am.makeBasis(_ax, _ay, _az));
+    }
     // Orientation of something standing on the ground: yaw about the terrain normal n.
     const _bx = new THREE.Vector3(), _bz = new THREE.Vector3(), _bm = new THREE.Matrix4();
     function groundQuat(q, n, yaw) {
@@ -274,10 +294,48 @@
       return q.setFromRotationMatrix(_bm.makeBasis(_bx, n, _bz));
     }
 
-    // ================================================================ PIP
-    // One rounded white box with a glossy face screen, on two bird-style legs (knees bend back).
-    // Feet are stepped in world space onto the terrain; legs are two-bone IK.
-    class Pip {
+    // Front of the hull, and flat 2D plates bent onto it (their undersides sink into the hull so no gap shows).
+    function hullZ(x, y) { return CZ + SZ * Math.sqrt(Math.max(0, 1 - (x / SX) ** 2 - ((y - CY) / SY) ** 2)); }
+    const V2 = (p) => new THREE.Vector2(p[0], p[1]);
+    function densify(pts, n) {
+      const out = [];
+      pts.forEach((a, i) => { const b = pts[(i + 1) % pts.length]; for (let k = 0; k < n; k++) out.push([a[0] + (b[0] - a[0]) * (k / n), a[1] + (b[1] - a[1]) * (k / n)]); });
+      return out.map(V2);
+    }
+    const rectPts = (cx, cy, w, h) => [[cx - w / 2, cy - h / 2], [cx + w / 2, cy - h / 2], [cx + w / 2, cy + h / 2], [cx - w / 2, cy + h / 2]];
+    const hexPts = (r, cy, wide = 1.1) => Array.from({ length: 6 }, (_, i) => [Math.cos((i * Math.PI) / 3) * r * wide, cy + Math.sin((i * Math.PI) / 3) * r]);
+    const _hn = new THREE.Vector3();
+    function plate(shape, mat, depth, lift, parent) {
+      const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 6 });
+      const p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) {
+        const x = p.getX(i), y = p.getY(i), z = p.getZ(i), hz = hullZ(x, y), off = z < 1e-5 ? -0.015 : lift + z;
+        _hn.set(x / (SX * SX), (y - CY) / (SY * SY), (hz - CZ) / (SZ * SZ)).normalize();
+        p.setXYZ(i, x + _hn.x * off, y + _hn.y * off, hz + _hn.z * off);
+      }
+      g.computeVertexNormals();
+      return mesh(g, mat, parent);
+    }
+    // Point on the hull in direction (nx, ny, nz) of its unit sphere, in body coordinates.
+    function hullPoint(nx, ny, nz) { const l = Math.hypot(nx, ny, nz); return new THREE.Vector3((SX * nx) / l, CY + (SY * ny) / l, CZ + (SZ * nz) / l); }
+
+    const glowTex = (() => {
+      const c = document.createElement('canvas'); c.width = c.height = 64;
+      const g = c.getContext('2d'), grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      grad.addColorStop(0, 'rgba(255,255,255,1)'); grad.addColorStop(0.3, 'rgba(255,255,255,0.45)'); grad.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
+      return new THREE.CanvasTexture(c);
+    })();
+    function glowSprite(size, opacity = 0.75) {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: GLOW, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false }));
+      s.scale.setScalar(size);
+      return s;
+    }
+
+    // ================================================================ THE WALKER
+    // Egg-shaped armoured hull with one blue eye, side sensor pods, big hip drums; legs with armoured shins
+    // and wheeled boots. Feet are stepped in world space onto the terrain; legs are two-bone IK, knees forward.
+    class Walker {
       constructor(scene, x, z) {
         this.scene = scene;
         this.root = new THREE.Group();
@@ -286,10 +344,11 @@
         this.body.add(this.shell);
         this.root.add(this.body);
         scene.add(this.root);
-        this.buildBody(); this.buildFace(); this.buildLegs();
+        this.strips = [];
+        this.buildHull(); this.buildEye(); this.buildLegs();
 
         this.x = x; this.z = z; this.h = 0; this.v = 0; this.w = 0; this.accel = 0; this.slope = 0;
-        this.gy = height(x, z); this.crouch = 0; this.crouchV = 0;
+        this.gy = height(x, z); this.crouch = 0;
         this.t = 0; this.dist = 0; this.steps = 0; this.lean = 0; this.thump = 0; this.flash = 0; this.dip = 0;
         this.feet = [1, -1].map((side) => {
           const px = x + side * STANCE_W, pz = z;
@@ -299,63 +358,107 @@
           };
         });
         this.next = 0; this.sinceLand = 1;
-        this.eye = { x: Spring(), y: Spring() };
-        this.blink = { next: 1.2, t: -1, dur: 0.17 };
-        this.happy = Spring(0); this.open = Spring(1); this.wide = Spring(0);
+        this.look = { x: Spring(), y: Spring() };
+        this.blink = { next: 1.2, t: -1, dur: 0.18 };
+        this.happy = Spring(0); this.open = Spring(1); this.wide = Spring(0); this.bright = Spring(1);
         this.saccade = { t: 0, x: 0, y: 0 }; this.lastLook = 0;
-        this.ant = { x: Spring(), z: Spring() };
         this.onStep = () => {};
         this.collide = () => {};
         const V = () => new THREE.Vector3();
-        Object.assign(this, { _t: V(), _a: V(), _h: V(), _k: V(), _e: V(), _p: V(), _n: V(), _f: V(), _l: V(), _nt: V(), _qp: new THREE.Quaternion() });
+        Object.assign(this, { _t: V(), _a: V(), _h: V(), _k: V(), _e: V(), _p: V(), _f: V(), _l: V(), _nt: V(), _qp: new THREE.Quaternion() });
       }
 
-      buildBody() {
+      buildHull() {
         const S = this.shell;
-        rbox(0.58, 0.5, 0.5, 0.09, MAT.white, S, 6).position.y = 0.3;                          // the box: y 0.05 .. 0.55
-        const lid = rbox(0.4, 0.012, 0.3, 0.005, MAT.white2, S); lid.position.set(0, 0.552, -0.02);
-        const hips = rbox(0.42, 0.09, 0.28, 0.035, MAT.graphite, S); hips.position.y = 0.05;
+        const hull = mesh(new THREE.SphereGeometry(1, 72, 48).scale(SX, SY, SZ), MAT.hull, S);
+        hull.position.set(0, CY, CZ);
+        // navy crest from the brow over the top to the back
+        const crest = mesh(new THREE.SphereGeometry(1, 56, 6, -1.65, 2.6, Math.PI / 2 - 0.25, 0.5).rotateZ(-Math.PI / 2).scale(SX * 1.02, SY * 1.02, SZ * 1.02), MAT.crest, S);
+        crest.position.set(0, CY, CZ);
+        // face: navy frame around a hexagonal eye socket, chin plate with three vents, two swept arms
+        const ring = new THREE.Shape(densify(hexPts(0.15, EYE_Y), 5));
+        ring.holes.push(new THREE.Path(densify(hexPts(0.112, EYE_Y), 5)));
+        plate(ring, MAT.navy, 0.022, 0.004, S);
+        plate(new THREE.Shape(densify(hexPts(0.114, EYE_Y), 5)), MAT.mech, 0.012, 0.002, S);
+        const c0 = EYE_Y - 0.1, c1 = EYE_Y - 0.28, cm = (c0 + c1) / 2 - 0.01;
+        plate(new THREE.Shape(densify(rectPts(0, cm, 0.15, 0.11), 5)), MAT.mech, 0.008, 0, S);
+        const chin = new THREE.Shape(densify([[-0.1, c0], [0.1, c0], [0.075, c1], [-0.075, c1]], 6));
+        for (const x of [-0.042, 0, 0.042]) chin.holes.push(new THREE.Path(rectPts(x, cm, 0.02, 0.085).map(V2)));
+        plate(chin, MAT.navy, 0.022, 0.004, S);
         for (const s of [1, -1]) {
-          const hj = axle(0.052, 0.07, MAT.graphite, S); hj.rotation.z = Math.PI / 2; hj.position.set(s * HIP_X, 0, 0);
-          const cap = axle(0.028, 0.074, MAT.steel, S, 16); cap.rotation.z = Math.PI / 2; cap.position.set(s * HIP_X, 0, 0);
+          plate(new THREE.Shape(densify([[0.1, EYE_Y + 0.09], [0.155, EYE_Y + 0.03], [0.31, EYE_Y + 0.14], [0.25, EYE_Y + 0.22]].map(([x, y]) => [s * x, y]), 6)), MAT.navy, 0.018, 0.004, S);
+          // glowing light strips low on the cheeks, in dark bezels
+          plate(new THREE.Shape(densify(rectPts(s * 0.27, 0.2, 0.13, 0.05), 5)), MAT.mech, 0.01, 0.002, S);
+          this.strips.push(plate(new THREE.Shape(densify(rectPts(s * 0.27, 0.2, 0.1, 0.022), 5)), MAT.glow, 0.015, 0.002, S));
+          // side sensor pod (+Y of the group points outward)
+          const pod = new THREE.Group(); pod.position.set(s * 0.43, CY + 0.03, 0.06); pod.rotation.z = -s * Math.PI / 2; S.add(pod);
+          axle(0.125, 0.05, MAT.navy, pod, 40).position.y = 0.01;
+          axle(0.105, 0.09, MAT.mech, pod, 40).position.y = 0.06;
+          const bez = mesh(new THREE.TorusGeometry(0.098, 0.009, 8, 40), MAT.mech2, pod); bez.rotation.x = Math.PI / 2; bez.position.y = 0.106;
+          axle(0.082, 0.03, MAT.mech2, pod, 40).position.y = 0.115;
+          axle(0.052, 0.014, MAT.glass, pod, 32).position.y = 0.132;
+          // hip drum under the hull, capped with a white shell and a dark concentric disc
+          const hip = new THREE.Group(); hip.position.set(s * HIP_X, 0, 0); hip.rotation.z = -s * Math.PI / 2; S.add(hip);
+          axle(0.1, 0.2, MAT.mech, hip, 32).position.y = -0.03;
+          const cap = mesh(new THREE.SphereGeometry(0.15, 40, 16, 0, TAU, 0, Math.PI / 2), MAT.armor, hip); cap.scale.set(1, 0.72, 1); cap.position.y = 0.03;
+          axle(0.09, 0.03, MAT.mech, hip, 32).position.y = 0.135;
+          axle(0.056, 0.036, MAT.mech2, hip, 32).position.y = 0.15;
+          axle(0.024, 0.04, MAT.navy, hip, 16).position.y = 0.16;
         }
-        // status lights on both flanks, vent on the back
-        this.leds = [1, -1].map((s) => { const l = rbox(0.008, 0.022, 0.12, 0.004, MAT.off, S, 2); l.position.set(s * 0.291, 0.43, 0.07); return l; });
-        for (let i = 0; i < 3; i++) { const v = rbox(0.26, 0.012, 0.008, 0.004, MAT.graphite, S, 2); v.position.set(0, 0.2 + i * 0.04, -0.251); }
-        // antenna with a springy tip
-        this.antenna = new THREE.Group(); this.antenna.position.set(-0.17, 0.55, -0.13); S.add(this.antenna);
-        axle(0.024, 0.02, MAT.graphite, this.antenna).position.y = 0.006;
-        axle(0.006, 0.17, MAT.steel, this.antenna, 8).position.y = 0.09;
-        sphere(0.023, MAT.accentSolid, this.antenna, 16).position.y = 0.185;
+        // screws on the panels
+        for (const [x, y, z] of [[0.36, 0.62, 0.7], [0.36, -0.2, 0.91], [0.75, 0.3, 0.59], [0.62, -0.42, 0.66], [0.42, 0.5, -0.76], [0.8, -0.1, -0.5]]) {
+          for (const s of [1, -1]) sphere(0.009, MAT.mech, S, 8).position.copy(hullPoint(s * x, y, z));
+        }
+        sphere(0.009, MAT.mech, S, 8).position.copy(hullPoint(0, 0.72, -0.69));
+        // under the hull: dark core between the hips and a white crotch plate with navy trim
+        rbox(0.4, 0.12, 0.26, 0.04, MAT.mech, S).position.set(0, 0.03, 0);
+        rbox(0.22, 0.14, 0.22, 0.035, MAT.armor, S).position.set(0, -0.03, 0.05);
+        rbox(0.13, 0.05, 0.03, 0.01, MAT.navy, S).position.set(0, -0.02, 0.165);
       }
 
-      buildFace() {
-        const S = this.shell;
-        const visor = mesh(new THREE.ExtrudeGeometry(roundedRect(0.39, 0.24, 0.075), { depth: 0.008, bevelEnabled: true, bevelThickness: 0.006, bevelSize: 0.006, bevelSegments: 3, curveSegments: 10 }), MAT.glass, S);
-        visor.position.set(0, 0.315, 0.244);
-        const c = document.createElement('canvas'); c.width = 256; c.height = 128;
-        this.fg = c.getContext('2d');
-        this.faceTex = new THREE.CanvasTexture(c);
-        this.faceTex.colorSpace = THREE.SRGBColorSpace;
-        const face = new THREE.Mesh(new THREE.PlaneGeometry(0.37, 0.185), new THREE.MeshBasicMaterial({ map: this.faceTex, transparent: true, toneMapped: false, depthWrite: false }));
-        face.position.set(0, 0.315, 0.2595);
-        S.add(face);
+      buildEye() {
+        this.eye = new THREE.Group();
+        this.eye.position.set(0, EYE_Y, hullZ(0, EYE_Y) - 0.01);
+        this.shell.add(this.eye);
+        const E = this.eye;
+        const barrel = axle(0.09, 0.07, MAT.mech, E, 40); barrel.rotation.x = Math.PI / 2; barrel.position.z = 0.02;
+        mesh(new THREE.TorusGeometry(0.087, 0.013, 10, 44), MAT.mech2, E).position.z = 0.055;
+        const lens = mesh(dome(0.078), MAT.glass, E); lens.scale.z = 0.38; lens.position.z = 0.05;
+        const c = document.createElement('canvas'); c.width = c.height = 128;
+        this.eg = c.getContext('2d');
+        this.eyeTex = new THREE.CanvasTexture(c);
+        this.eyeTex.colorSpace = THREE.SRGBColorSpace;
+        const iris = new THREE.Mesh(new THREE.CircleGeometry(0.068, 40), new THREE.MeshBasicMaterial({ map: this.eyeTex, transparent: true, toneMapped: false, depthWrite: false }));
+        iris.position.z = 0.081;
+        E.add(iris);
+        this.eyeGlow = glowSprite(0.28, 0.45);
+        this.eyeGlow.position.z = 0.09;
+        E.add(this.eyeGlow);
       }
 
       buildLegs() {
         const S = this.scene;
-        const thighGeo = limbGeo(0.05, 0.039, L1), shinGeo = limbGeo(0.039, 0.028, L2);
         this.legs = [1, -1].map((side) => {
-          const thigh = mesh(thighGeo, MAT.white, S);
-          const shin = mesh(shinGeo, MAT.white, S);
-          const knee = new THREE.Group(); S.add(knee);
-          axle(0.042, 0.086, MAT.graphite, knee); axle(0.022, 0.092, MAT.steel, knee, 12);
-          const foot = new THREE.Group(); S.add(foot);
-          sphere(0.03, MAT.graphite, foot, 16);
-          rbox(0.12, 0.045, 0.2, 0.02, MAT.white, foot).position.set(0, -0.027, 0.028);
-          rbox(0.124, 0.014, 0.204, 0.006, MAT.rubber, foot).position.set(0, -0.043, 0.028);
-          rbox(0.05, 0.01, 0.028, 0.004, MAT.accentSolid, foot, 2).position.set(0, -0.012, -0.058);
-          return { side, thigh, shin, knee, foot };
+          const thigh = new THREE.Group(); S.add(thigh);                     // +Y from hip to knee
+          axle(0.052, L1, MAT.mech, thigh, 18).position.y = L1 / 2;
+          for (const y of [0.08, L1 - 0.08]) axle(0.066, 0.03, MAT.mech2, thigh, 18).position.y = y;
+          const shin = new THREE.Group(); S.add(shin);                       // +Y from knee to ankle, +Z forward
+          const knee = axle(0.06, 0.15, MAT.mech, shin, 24); knee.rotation.z = Math.PI / 2;
+          const kc = axle(0.032, 0.16, MAT.steel, shin, 12); kc.rotation.z = Math.PI / 2;
+          rbox(0.21, 0.27, 0.21, 0.04, MAT.armor, shin).position.set(0, L2 * 0.44, 0.02);
+          const kp = rbox(0.165, 0.2, 0.045, 0.016, MAT.navy, shin); kp.position.set(0, L2 * 0.32, 0.125); kp.rotation.x = -0.14;
+          const ankle = axle(0.05, 0.17, MAT.mech, shin, 18); ankle.rotation.z = Math.PI / 2; ankle.position.y = L2;
+          const foot = new THREE.Group(); S.add(foot);                       // at the ankle; +Y along the ground normal
+          const aj = axle(0.045, 0.15, MAT.mech2, foot, 18); aj.rotation.z = Math.PI / 2;
+          rbox(0.19, 0.085, 0.3, 0.03, MAT.armor, foot).position.set(0, -0.055, 0.04);
+          rbox(0.196, 0.014, 0.304, 0.006, MAT.mech, foot).position.set(0, -0.094, 0.04);
+          const top = rbox(0.15, 0.032, 0.16, 0.012, MAT.navy, foot); top.position.set(0, -0.008, 0.085); top.rotation.x = 0.1;
+          rbox(0.008, 0.05, 0.09, 0.003, MAT.mech, foot).position.set(0, -0.055, 0.155);
+          for (const s of [1, -1]) for (const z of [-0.075, 0.025]) {
+            const wheel = axle(0.042, 0.032, MAT.mech, foot, 18); wheel.rotation.z = Math.PI / 2; wheel.position.set(s * 0.104, -0.06, z);
+            const hub = axle(0.018, 0.036, MAT.steel, foot, 10); hub.rotation.z = Math.PI / 2; hub.position.copy(wheel.position);
+          }
+          return { side, thigh, shin, foot };
         });
       }
 
@@ -370,15 +473,15 @@
 
       stepFeet(dt) {
         const moving = Math.abs(this.v) > 0.03 || Math.abs(this.w) > 0.1;
-        const T = T_SWING - 0.07 * clamp((Math.abs(this.v) - WALK_V) / (HURRY_V - WALK_V), 0, 1);
+        const T = T_SWING - 0.08 * clamp((Math.abs(this.v) - WALK_V) / (HURRY_V - WALK_V), 0, 1);
         const t = this._t;
         this.sinceLand += dt;
-        if (!this.feet.some((f) => f.swing) && this.sinceLand > (moving ? 0.01 : 0.12)) {
+        if (!this.feet.some((f) => f.swing) && this.sinceLand > (moving ? 0.02 : 0.14)) {
           const a = this.feet[this.next], b = this.feet[1 - this.next];
           for (const f of [a, b]) {
             const yawT = this.target(f, 1.5 * T + 0.01, t);
             const err = Math.hypot(t.x - f.pos.x, t.z - f.pos.z), yerr = Math.abs(angTo(f.yaw, yawT));
-            if ((moving && f === a) || err > 0.03 || yerr > 0.18) {
+            if ((moving && f === a) || err > 0.04 || yerr > 0.18) {
               Object.assign(f, { swing: true, u: 0, T, fromYaw: f.yaw, travel: err });
               f.from.copy(f.pos); f.fromN.copy(f.n);
               this.next = this.feet.indexOf(f) ^ 1;
@@ -395,12 +498,11 @@
           f.n.lerpVectors(f.fromN, normalAt(t.x, t.z, this._nt), e).normalize();
           f.yaw = f.fromYaw + angTo(f.fromYaw, yawT) * e;
           const arc = Math.sin(Math.PI * Math.pow(f.u, 0.8));
-          f.lift = (LIFT * clamp(f.travel / 0.1, 0.3, 1) + Math.max(0, t.y - f.from.y) * 0.6) * arc;
-          f.pitch = 0.3 * Math.sin(TAU * f.u) * clamp(f.travel / 0.14, 0, 1);
+          f.lift = (LIFT * clamp(f.travel / 0.12, 0.3, 1) + Math.max(0, t.y - f.from.y) * 0.6) * arc;
+          f.pitch = 0.26 * Math.sin(TAU * f.u) * clamp(f.travel / 0.16, 0, 1);
           if (f.u >= 1) {
             Object.assign(f, { swing: false, lift: 0, pitch: 0 });
             this.sinceLand = 0; this.thump = 1; this.flash = 1; this.steps++;
-            this.ant.x.v += 1.1;
             this.onStep(f);
           }
         }
@@ -418,51 +520,46 @@
         this.t += dt;
         const px = this.x, pz = this.z, vPrev = this.v;
         const fx = Math.sin(this.h), fz = Math.cos(this.h);
-        const slope = (height(this.x + fx * 0.3, this.z + fz * 0.3) - height(this.x - fx * 0.3, this.z - fz * 0.3)) / 0.6;
+        const slope = (height(this.x + fx * 0.35, this.z + fz * 0.35) - height(this.x - fx * 0.35, this.z - fz * 0.35)) / 0.7;
         this.slope += (slope - this.slope) * damp(4, dt);
         const vt = c.vt * (1 - clamp(this.slope * 0.9, -0.15, 0.4));      // slower uphill
-        this.v += (vt - this.v) * damp(vt > this.v ? 2.6 : 4, dt);
-        this.w += (c.wt - this.w) * damp(5, dt);
+        this.v += (vt - this.v) * damp(vt > this.v ? 2.2 : 3.5, dt);
+        this.w += (c.wt - this.w) * damp(4.5, dt);
         this.h = wrap(this.h + this.w * dt);
         this.x += Math.sin(this.h) * this.v * dt;
         this.z += Math.cos(this.h) * this.v * dt;
-        if (!dry(this.x, this.z, 0.02)) { this.x = px; this.z = pz; }       // Pip does not swim
+        if (!dry(this.x, this.z, 0.02)) { this.x = px; this.z = pz; }       // it does not swim
         this.collide(this);
         this.accel += ((this.v - vPrev) / Math.max(dt, 1e-3) - this.accel) * damp(8, dt);
         this.dist += Math.hypot(this.x - px, this.z - pz);
-        const cr = this.crouch;
-        this.crouch += ((c.crouch || 0) - this.crouch) * damp(9, dt);
-        this.crouchV = (this.crouch - cr) / Math.max(dt, 1e-3);
+        this.crouch += ((c.crouch || 0) - this.crouch) * damp(8, dt);
         this.stepFeet(dt);
-        this.poseBody(dt);
+        this.poseBody(dt, c);
         this.poseLegs();
-        this.poseFace(dt, c);
+        this.poseEye(dt, c);
       }
 
-      poseBody(dt) {
+      poseBody(dt, c) {
         let sway = 0, bob = 0, twist = 0;
         for (const f of this.feet) {
           if (!f.swing) continue;
-          const s = Math.sin(Math.PI * f.u) * clamp(f.travel / 0.08, 0.3, 1);
+          const s = Math.sin(Math.PI * f.u) * clamp(f.travel / 0.1, 0.3, 1);
           sway -= f.side * s; bob += s; twist -= f.side * s;
         }
-        this.thump = Math.max(0, this.thump - dt * 7);
+        this.thump = Math.max(0, this.thump - dt * 6);
         this.dip = hump(1 - this.thump, 0, 1);
         const ground = 0.5 * height(this.x, this.z) + 0.25 * (this.feet[0].pos.y + this.feet[1].pos.y);
-        this.gy += (ground - this.gy) * damp(10, dt);
-        this.lean += (clamp(0.05 * this.v / WALK_V + this.accel * 0.04, -0.08, 0.1) - this.lean) * damp(4, dt);
+        this.gy += (ground - this.gy) * damp(9, dt);
+        this.lean += (clamp(0.04 * this.v / WALK_V + this.accel * 0.05, -0.08, 0.1) - this.lean) * damp(4, dt);
         this.root.position.set(this.x, 0, this.z);
         this.root.rotation.y = this.h;
         const B = this.body;
-        B.position.set(sway * 0.018, this.gy + PELVIS + bob * 0.018 - this.dip * 0.016 - this.crouch * 0.14 + Math.sin(this.t * 2.1) * 0.003, 0);
-        B.rotation.set(this.lean, twist * 0.04 + this.eye.x.x * 0.06, -sway * 0.05);
-        this.shell.scale.set(1 + this.dip * 0.018, 1 - this.dip * 0.035, 1 + this.dip * 0.018);
-        // antenna lags behind the body, wobbles on every footfall and bounce
-        spring(this.ant.x, clamp(-this.accel * 0.15 - this.crouchV * 0.12, -0.5, 0.5), dt, 90, 4.5);
-        spring(this.ant.z, clamp(this.w * 0.18 + sway * 0.08, -0.5, 0.5), dt, 90, 4.5);
-        this.antenna.rotation.set(this.ant.x.x, 0, this.ant.z.x);
-        this.flash = Math.max(0, this.flash - dt * 5);
-        for (const l of this.leds) l.material = this.flash > 0.25 ? MAT.accent : MAT.off;
+        B.position.set(sway * 0.028, this.gy + PELVIS + bob * 0.026 - this.dip * 0.022 - this.crouch * 0.16 + Math.sin(this.t * 1.8) * 0.004, 0);
+        B.rotation.set(this.lean, twist * 0.035, -sway * 0.045);
+        this.shell.scale.set(1 + this.dip * 0.015, 1 - this.dip * 0.03, 1 + this.dip * 0.015);
+        this.flash = Math.max(0, this.flash - dt * 4);
+        const strip = c.sleepy ? MAT.glowDim : this.flash > 0.35 ? MAT.glowHot : MAT.glow;
+        for (const s of this.strips) s.material = strip;
       }
 
       poseLegs() {
@@ -481,65 +578,140 @@
           const A = this.ankle(f, this._a);
           const e1 = this._e.subVectors(A, H); const d0 = e1.length(); e1.divideScalar(d0 || 1);
           const dc = clamp(d0, Math.abs(L1 - L2) + 1e-3, L1 + L2 - 1e-3);
-          const e2 = this._p.copy(fwd).multiplyScalar(-1).addScaledVector(left, L.side * 0.1);   // knees point back
+          const e2 = this._p.copy(fwd).addScaledVector(left, L.side * 0.08);          // knees forward, a touch outward
           e2.addScaledVector(e1, -e2.dot(e1)).normalize();
           const a = Math.acos(clamp((L1 * L1 + dc * dc - L2 * L2) / (2 * L1 * dc), -1, 1));
           const K = this._k.copy(H).addScaledVector(e1, Math.cos(a) * L1).addScaledVector(e2, Math.sin(a) * L1);
           const end = this._t.copy(H).addScaledVector(e1, dc);
-          aim(L.thigh, H, K);
-          aim(L.shin, K, end);
-          L.knee.position.copy(K);
-          orient(L.knee, this._n.crossVectors(e1, e2));
+          aimBasis(L.thigh, H, K, fwd);
+          aimBasis(L.shin, K, end, fwd);
           L.foot.position.copy(A);
           groundQuat(L.foot.quaternion, f.n, f.yaw).multiply(this._qp.setFromAxisAngle(XAX, f.pitch));
         });
       }
 
-      poseFace(dt, c) {
+      poseEye(dt, c) {
         let lx = 0, ly = 0;
         if (c.look) {
           const dx = c.look.x - this.x, dz = c.look.z - this.z;
           lx = clamp(angTo(this.h, Math.atan2(dx, dz)) / 1.1, -1, 1);
-          ly = clamp(Math.atan2(c.look.y - (this.gy + 0.75), Math.hypot(dx, dz)) / 0.6, -1, 1);
+          ly = clamp(Math.atan2(c.look.y - (this.gy + PELVIS + EYE_Y), Math.hypot(dx, dz)) / 0.6, -1, 1);
         }
         const bl = this.blink;
         if ((c.blink || Math.abs(lx - this.lastLook) > 0.6) && bl.t < 0) bl.next = 0;     // big glances come with a blink
         this.lastLook = lx;
         bl.next -= dt;
-        if (bl.next <= 0 && bl.t < 0) { bl.t = 0; bl.dur = Math.random() < 0.22 ? 0.44 : 0.17; bl.next = 2 + Math.random() * 3.5; }
+        if (bl.next <= 0 && bl.t < 0) { bl.t = 0; bl.dur = Math.random() < 0.22 ? 0.46 : 0.18; bl.next = 2.2 + Math.random() * 3.5; }
         let close = 0;
         if (bl.t >= 0) {
           bl.t += dt;
-          close = bl.dur > 0.3 ? Math.max(hump(bl.t, 0, 0.17), hump(bl.t, 0.25, 0.42)) : hump(bl.t, 0, 0.17);
+          close = bl.dur > 0.3 ? Math.max(hump(bl.t, 0, 0.18), hump(bl.t, 0.26, 0.44)) : hump(bl.t, 0, 0.18);
           if (bl.t >= bl.dur) bl.t = -1;
         }
         const S = this.saccade;
         S.t -= dt;
         if (S.t <= 0) { S.t = 0.5 + Math.random() * 1.5; S.x = (Math.random() - 0.5) * 0.25; S.y = (Math.random() - 0.5) * 0.2; }
-        spring(this.eye.x, lx + S.x, dt, 110, 14);
-        spring(this.eye.y, ly + S.y, dt, 110, 14);
+        const ex = spring(this.look.x, lx + S.x, dt, 90, 13), ey = spring(this.look.y, ly + S.y, dt, 90, 13);
+        this.eye.rotation.set(-ey * 0.22, ex * 0.32, 0);       // the whole lens barrel turns to look
         const hap = spring(this.happy, c.happy ? 1 : 0, dt, 60, 12);
         const wide = spring(this.wide, c.wide ? 1 : 0, dt, 60, 10);
-        const open = spring(this.open, c.sleepy ? 0.1 : this.slope > 0.16 && this.v > 0.1 ? 0.72 : 1, dt, 40, 10);
-        this.drawFace(this.eye.x.x, this.eye.y.x, Math.max(0.06, open * (1 - close * 0.95)), hap, wide);
+        const open = spring(this.open, c.sleepy ? 0.1 : this.slope > 0.16 && this.v > 0.1 ? 0.7 : 1, dt, 40, 10);
+        const bright = spring(this.bright, c.sleepy ? 0.25 : 1, dt, 30, 10);
+        this.eyeGlow.material.opacity = 0.45 * bright * (1 - close * 0.8);
+        this.drawEye(ex, ey, Math.max(0.06, open * (1 - close * 0.95)), hap, wide, bright);
       }
 
-      drawFace(lx, ly, open, happy, wide) {
-        const g = this.fg, W = 256, H = 128;
-        g.clearRect(0, 0, W, H);
-        g.fillStyle = g.strokeStyle = '#fff4e4';
-        g.shadowColor = 'rgba(255, 150, 90, 0.9)'; g.shadowBlur = 16;
-        for (const s of [-1, 1]) {
-          const cx = W / 2 + s * 56 + clamp(lx, -1.2, 1.2) * 20, cy = H / 2 - clamp(ly, -1.2, 1.2) * 12;
-          if (happy > 0.5) {
-            g.lineWidth = 15; g.lineCap = 'round';
-            g.beginPath(); g.arc(cx, cy + 20, 28, Math.PI * 1.15, Math.PI * 1.85); g.stroke();
-          } else {
-            const w = 50 * (1 + wide * 0.12), h = Math.max(7, 74 * open * (1 + wide * 0.1));
-            g.beginPath(); g.roundRect(cx - w / 2, cy - h / 2, w, h, Math.min(w, h) / 2); g.fill();
-          }
+      drawEye(lx, ly, open, happy, wide, bright) {
+        const g = this.eg;
+        g.clearRect(0, 0, 128, 128);
+        g.save();
+        g.globalAlpha = 0.3 + 0.7 * bright;
+        const cx = 64 + clamp(lx, -1.2, 1.2) * 9, cy = 64 - clamp(ly, -1.2, 1.2) * 9;
+        if (happy > 0.5) {
+          g.strokeStyle = '#a9ecff'; g.lineWidth = 15; g.lineCap = 'round';
+          g.shadowColor = 'rgba(76, 200, 255, 1)'; g.shadowBlur = 16;
+          g.beginPath(); g.arc(cx, cy + 20, 30, Math.PI * 1.15, Math.PI * 1.85); g.stroke();
+        } else {
+          const r = 31 * (1 + wide * 0.12);
+          g.translate(cx, cy); g.scale(1, open);
+          const grad = g.createRadialGradient(0, 0, 0, 0, 0, r);
+          grad.addColorStop(0, '#ffffff'); grad.addColorStop(0.28, '#c4f2ff'); grad.addColorStop(0.62, '#4cc8ff'); grad.addColorStop(1, 'rgba(76, 200, 255, 0)');
+          g.fillStyle = grad; g.beginPath(); g.arc(0, 0, r, 0, TAU); g.fill();
+          g.strokeStyle = 'rgba(76, 200, 255, 0.75)'; g.lineWidth = 3;
+          g.beginPath(); g.arc(0, 0, r * 1.5, 0, TAU); g.stroke();
         }
-        this.faceTex.needsUpdate = true;
+        g.restore();
+        this.eyeTex.needsUpdate = true;
+      }
+    }
+
+    // ================================================================ DRONES
+    // Round white scouts with a navy cap, one blue eye and a slow two-bladed rotor on each side.
+    class Drone {
+      constructor(scene, i) {
+        this.i = i;
+        this.g = new THREE.Group(); this.g.scale.setScalar(1.3); scene.add(this.g);
+        this.tilt = new THREE.Group(); this.g.add(this.tilt);
+        const T = this.tilt;
+        sphere(0.105, MAT.armor, T, 36);
+        const cap = mesh(new THREE.SphereGeometry(0.108, 36, 12, 0, TAU, 0, 0.95), MAT.navy, T); cap.rotation.x = -0.8;
+        const seam = mesh(new THREE.TorusGeometry(0.105, 0.005, 6, 48), MAT.mech, T); seam.rotation.y = Math.PI / 2;
+        const eye = new THREE.Group(); eye.position.z = 0.078; T.add(eye);
+        const barrel = axle(0.056, 0.05, MAT.mech, eye, 32); barrel.rotation.x = Math.PI / 2; barrel.position.z = 0.012;
+        mesh(new THREE.TorusGeometry(0.056, 0.009, 8, 36), MAT.navy, eye).position.z = 0.036;
+        const lens = mesh(dome(0.048), MAT.glass, eye); lens.scale.z = 0.4; lens.position.z = 0.034;
+        this.iris = new THREE.Mesh(new THREE.CircleGeometry(0.024, 28), MAT.glow.clone());
+        this.iris.material.toneMapped = false;
+        this.iris.position.z = 0.055;
+        eye.add(this.iris);
+        this.glow = glowSprite(0.2, 0.6); this.glow.position.z = 0.065; eye.add(this.glow);
+        this.rotors = [1, -1].map((s) => {
+          const hub = axle(0.026, 0.06, MAT.navy, T, 18); hub.rotation.z = Math.PI / 2; hub.position.x = s * 0.112;
+          const r = new THREE.Group(); r.position.x = s * 0.148; T.add(r);
+          axle(0.02, 0.02, MAT.mech2, r, 14).rotation.z = Math.PI / 2;
+          for (const b of [0, Math.PI]) {
+            const blade = new THREE.Group(); blade.rotation.x = b; r.add(blade);
+            const paddle = rbox(0.016, 0.15, 0.052, 0.008, MAT.mech, blade, 2); paddle.position.y = 0.09; paddle.rotation.y = s * 0.25;
+            const strip = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.09, 0.014), MAT.glow); strip.position.set(s * 0.01, 0.1, 0); blade.add(strip);
+          }
+          return r;
+        });
+        this.pos = new THREE.Vector3(); this.vel = new THREE.Vector3(); this.yaw = 0; this.spin = 10;
+        this.blink = 0; this.nextBlink = 1 + Math.random() * 3; this.phase = Math.random() * TAU; this.roll = 0;
+        this.blob = blob(0.42, 0.45);
+      }
+
+      // target: where to hover, look: what to face, mood: { landed, happy, roll }
+      update(dt, target, look, mood) {
+        const k = mood.landed ? 5 : 6, c = 4.2;
+        this.vel.x += ((target.x - this.pos.x) * k - this.vel.x * c) * dt;
+        this.vel.y += ((target.y - this.pos.y) * k - this.vel.y * c) * dt;
+        this.vel.z += ((target.z - this.pos.z) * k - this.vel.z * c) * dt;
+        this.pos.addScaledVector(this.vel, dt);
+        const floor = height(this.pos.x, this.pos.z) + 0.145;
+        if (this.pos.y < floor) { this.pos.y = floor; this.vel.y = Math.max(0, this.vel.y); }
+        const hover = mood.landed ? 0 : Math.sin(pip.t * 2.2 + this.phase) * 0.025;
+        this.g.position.set(this.pos.x, this.pos.y + hover, this.pos.z);
+        const want = Math.atan2(look.x - this.pos.x, look.z - this.pos.z);
+        this.yaw = wrap(this.yaw + angTo(this.yaw, want) * damp(4, dt));
+        this.g.rotation.y = this.yaw;
+        const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
+        const fwd = this.vel.x * sy + this.vel.z * cy, lat = this.vel.x * cy - this.vel.z * sy;
+        this.roll += ((mood.roll || 0) - this.roll) * damp(10, dt);
+        this.tilt.rotation.set(clamp(fwd * 0.45, -0.4, 0.4), 0, clamp(-lat * 0.45, -0.4, 0.4) + this.roll);
+        this.spin += ((mood.landed ? 0 : 11 + this.vel.length() * 6) - this.spin) * damp(2, dt);
+        this.rotors.forEach((r, j) => { r.rotation.x += (j ? -1 : 1) * this.spin * dt; });
+        this.nextBlink -= dt;
+        if (this.nextBlink <= 0) { this.blink = 0.16; this.nextBlink = 2 + Math.random() * 4; }
+        this.blink = Math.max(0, this.blink - dt);
+        const lit = mood.landed ? 0.3 : 1;
+        this.iris.scale.set(mood.happy ? 1.2 : 1, (this.blink > 0 ? 0.15 : 1) * (mood.happy ? 0.55 : 1), 1);
+        this.iris.material.color.copy(GLOW).multiplyScalar(0.35 + 0.65 * lit);
+        this.glow.material.opacity = 0.6 * lit;
+        const gy = height(this.pos.x, this.pos.z), alt = this.pos.y - gy;
+        this.blob.position.set(this.pos.x, gy + 0.01, this.pos.z);
+        this.blob.scale.setScalar(0.22 + alt * 0.12);
+        this.blob.material.opacity = 0.5 / (1 + alt * 1.5);
       }
     }
 
@@ -569,7 +741,7 @@
     scene.add(key, key.target);
     const KEY_OFF = new THREE.Vector3(-7, 14, 9);
 
-    // shared map marks: dashed square boundaries, a bold cross at every corner
+    // shared map marks: square boundaries with a cross at every corner
     const U = {
       uInk: { value: INK.clone() }, uTime: { value: 0 },
       uDeep: { value: new THREE.Color(LAND.deep) }, uSand: { value: new THREE.Color(LAND.sand) }, uLow: { value: new THREE.Color(LAND.low) },
@@ -662,6 +834,21 @@
       water.position.set(cx, WATER, cz);
     }
 
+    const blobTex = (() => {
+      const c = document.createElement('canvas'); c.width = c.height = 64;
+      const g = c.getContext('2d'), grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      grad.addColorStop(0, 'rgba(0,0,0,0.6)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
+      return new THREE.CanvasTexture(c);
+    })();
+    const blobGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+    function blob(size, opacity) {
+      const m = new THREE.Mesh(blobGeo, new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, opacity, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+      m.scale.setScalar(size);
+      scene.add(m);
+      return m;
+    }
+
     // ================================================================ props: low-poly trees in forest patches, boulders, survey stakes on corners
     function tint(g, hex) {
       g = g.index ? g.toNonIndexed() : g;
@@ -687,11 +874,11 @@
       }),
       stake: [mergeGeometries([
         tint(new THREE.CylinderGeometry(0.011, 0.011, 0.34, 6).translate(0, 0.17, 0), '#f3f1ea'),
-        tint(new THREE.ConeGeometry(0.03, 0.07, 8).rotateX(Math.PI).translate(0, 0.36, 0), '#E55B2B'),
-        tint(new THREE.BoxGeometry(0.1, 0.055, 0.004).translate(0.05, 0.3, 0), '#E55B2B'),
+        tint(new THREE.ConeGeometry(0.03, 0.07, 8).rotateX(Math.PI).translate(0, 0.36, 0), '#2f4169'),
+        tint(new THREE.BoxGeometry(0.1, 0.055, 0.004).translate(0.05, 0.3, 0), '#2d5fb8'),
       ])],
     };
-    const PCELL = 1.4, PRANGE = 12, SRANGE = 9;
+    const PCELL = 1.5, PRANGE = 11, SRANGE = 9;
     const props = new Map();
     function placeProp(type, variant, x, z, s, yaw, key) {
       const m = mesh(PGEO[type][variant], MAT.prop, scene);
@@ -701,9 +888,9 @@
     }
     function spawnCell(i, j) {
       const x = (i + 0.2 + hash(i, j, 2) * 0.6) * PCELL, z = (j + 0.2 + hash(i, j, 3) * 0.6) * PCELL;
-      if (!dry(x, z, 0.12) || Math.hypot(x - START.x, z - START.z) < 2.2) return null;
-      const r = hash(i, j, 1), s = 0.8 + 0.45 * hash(i, j, 6), yaw = hash(i, j, 5) * TAU;
-      if (r < clamp((forestAt(x, z) - 0.08) * 1.7, 0, 0.72)) {
+      if (!dry(x, z, 0.12) || Math.hypot(x - START.x, z - START.z) < 2.4) return null;
+      const r = hash(i, j, 1), s = 0.85 + 0.45 * hash(i, j, 6), yaw = hash(i, j, 5) * TAU;
+      if (r < clamp((forestAt(x, z) - 0.08) * 1.6, 0, 0.6)) {
         const pine = hash(i, j, 4) < 0.62;
         return placeProp(pine ? 'pine' : 'round', hash(i, j, 8) < 0.5 ? 0 : 1, x, z, s, yaw, `${i},${j}`);
       }
@@ -744,12 +931,12 @@
       const g = c.getContext('2d');
       const rr = (x, y, w, h, r) => { g.beginPath(); g.roundRect(x, y, w, h, r); g.fill(); };
       g.fillStyle = '#fff';
-      g.globalAlpha = 0.3; rr(5, 5, 54, 118, 24);
+      g.globalAlpha = 0.3; rr(4, 4, 56, 120, 14);
       g.globalAlpha = 1;
-      for (let i = 0; i < 6; i++) rr(15, 16 + i * 17, 34, 7, 3.5);   // tread bars
+      for (let i = 0; i < 6; i++) rr(12, 14 + i * 18, 40, 8, 3);   // tread bars
       return new THREE.CanvasTexture(c);
     }
-    const printTex = printTexture(), printGeo = new THREE.PlaneGeometry(0.12, 0.21).rotateX(-Math.PI / 2);
+    const printTex = printTexture(), printGeo = new THREE.PlaneGeometry(0.19, 0.3).rotateX(-Math.PI / 2);
     const prints = Array.from({ length: 110 }, () => {
       const m = new THREE.Mesh(printGeo, new THREE.MeshBasicMaterial({ color: INK, map: printTex, transparent: true, opacity: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
       m.visible = false; m.renderOrder = 2;
@@ -771,17 +958,17 @@
 
     const flag = new THREE.Group();
     {
-      const pole = axle(0.008, 0.46, MAT.graphite, flag, 8); pole.position.y = 0.23;
-      const shape = new THREE.Shape(); shape.moveTo(0, 0); shape.lineTo(0.17, -0.045); shape.lineTo(0, -0.09); shape.closePath();
+      const pole = axle(0.009, 0.5, MAT.mech, flag, 8); pole.position.y = 0.25;
+      const shape = new THREE.Shape(); shape.moveTo(0, 0); shape.lineTo(0.18, -0.048); shape.lineTo(0, -0.096); shape.closePath();
       const cloth = new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshStandardMaterial({ color: ACCENT, roughness: 0.6, side: THREE.DoubleSide }));
       cloth.castShadow = true;
-      const hinge = new THREE.Group(); hinge.position.y = 0.46; hinge.add(cloth); flag.add(hinge);
+      const hinge = new THREE.Group(); hinge.position.y = 0.5; hinge.add(cloth); flag.add(hinge);
       flag.userData = { hinge, t: 0 };
       flag.visible = false;
       scene.add(flag);
     }
 
-    // ================================================================ Pip
+    // ================================================================ the walker and its drones
     const START = (() => {
       for (let r = 0; r < 60; r += 0.5) for (let a = 0; a < TAU; a += 0.4) {
         const x = Math.cos(a) * r, z = Math.sin(a) * r;
@@ -789,16 +976,17 @@
       }
       return { x: 0, z: 0 };
     })();
-    const cam = { az: Math.PI / 4, azT: Math.PI / 4, zoom: 1.3, zoomT: 1.3, x: START.x, y: height(START.x, START.z) + 0.45, z: START.z };
-    const pip = new Pip(scene, START.x, START.z);
+    const cam = { az: Math.PI / 4, azT: Math.PI / 4, zoom: 1.15, zoomT: 1.15, x: START.x, y: height(START.x, START.z) + 0.6, z: START.z };
+    const pip = new Walker(scene, START.x, START.z);
+    const pipBlob = blob(1.1, 0.35);
     pip.onStep = (f) => {
       const P = prints[printI++ % prints.length];
       P.age = 0;
       P.m.position.copy(f.pos).addScaledVector(f.n, 0.004);
-      P.m.position.x += Math.sin(f.yaw) * 0.028; P.m.position.z += Math.cos(f.yaw) * 0.028;
+      P.m.position.x += Math.sin(f.yaw) * 0.04; P.m.position.z += Math.cos(f.yaw) * 0.04;
       groundQuat(P.m.quaternion, f.n, f.yaw);
       P.m.visible = true;
-      if (f.travel > 0.05) ring(f.pos.x, f.pos.z + Math.cos(f.yaw) * 0.02, { r0: 0.05, r1: 0.17, dur: 0.45, opacity: 0.1 });
+      if (f.travel > 0.05) ring(f.pos.x, f.pos.z + Math.cos(f.yaw) * 0.03, { r0: 0.08, r1: 0.26, dur: 0.5, opacity: 0.12 });
     };
     pip.collide = (b) => {
       for (const P of near) {
@@ -806,9 +994,11 @@
         if (d < min) { b.x = P.x + (dx / d) * min; b.z = P.z + (dz / d) * min; }
       }
     };
+    const drones = [0, 1, 2].map((i) => new Drone(scene, i));
+    drones.forEach((d, i) => { d.pos.set(START.x + Math.cos(i * 2.1) * 0.9, height(START.x, START.z) + 1.4, START.z + Math.sin(i * 2.1) * 0.9); });
 
-    // ================================================================ what Pip does next (a small state machine, nothing learned)
-    const LABEL = { walk: 'Out for a walk', look: 'Looking around', hi: 'Saying hi', doze: 'Taking a nap', goto: 'Heading to your spot' };
+    // ================================================================ what happens next (a small state machine, nothing learned)
+    const LABEL = { walk: 'On patrol', look: 'Scanning around', hi: 'Saying hi', doze: 'Powering down', goto: 'Heading to your marker' };
     const D = { state: 'walk', t: 0, dur: 9, phase: 0, pace: 1, h0: 0, goal: new THREE.Vector3(), best: 1e9, bestT: 0, t0: 0, clock: 0, escape: null, chk: { t: 0, x: START.x, z: START.z }, note: null };
     const wander = [Math.random() * TAU, Math.random() * TAU];
     const lookAt = new THREE.Vector3();
@@ -833,15 +1023,15 @@
         if (tx * dx + tz * dz < 0) { tx = -tx; tz = -tz; }
         dx += (ux * 0.8 + tx * 1.2) * s; dz += (uz * 0.8 + tz * 1.2) * s;
       }
-      for (const [a, dist, w] of [[0, 1.1, 1.5], [0.55, 0.95, 1], [-0.55, 0.95, 1], [0, 0.55, 2.5]]) {
+      for (const [a, dist, w] of [[0, 1.3, 1.5], [0.55, 1.1, 1], [-0.55, 1.1, 1], [0, 0.7, 2.5]]) {
         const hx = Math.sin(pip.h + a), hz = Math.cos(pip.h + a);
         if (!dry(pip.x + hx * dist, pip.z + hz * dist, 0.06)) { dx -= hx * w; dz -= hz * w; }
       }
-      return clamp(angTo(pip.h, Math.atan2(dx, dz)) * 1.8, -1.25, 1.25);
+      return clamp(angTo(pip.h, Math.atan2(dx, dz)) * 1.8, -1.1, 1.1);
     }
     function ahead(dist, y, yaw = 0) { const hh = pip.h + yaw; return lookAt.set(pip.x + Math.sin(hh) * dist, pip.gy + y, pip.z + Math.cos(hh) * dist); }
     function interesting() {
-      let best = null, bd = 2.4;
+      let best = null, bd = 2.8;
       for (const P of near) {
         const dx = P.x - pip.x, dz = P.z - pip.z, d = Math.hypot(dx, dz);
         if (d < bd && Math.abs(angTo(pip.h, Math.atan2(dx, dz))) < 1.1) { best = P; bd = d; }
@@ -854,7 +1044,7 @@
       const c = { vt: 0, wt: 0, look: null, happy: false, wide: false, sleepy: false, crouch: 0, blink: false };
       // unstick: if a walk has gone nowhere for a while, turn well away
       if (D.clock - D.chk.t > 2.5) {
-        if (D.state === 'walk' && Math.hypot(pip.x - D.chk.x, pip.z - D.chk.z) < 0.35) D.escape = { h: pip.h + (Math.random() < 0.5 ? 1 : -1) * (2 + Math.random()), until: D.clock + 2.2 };
+        if (D.state === 'walk' && Math.hypot(pip.x - D.chk.x, pip.z - D.chk.z) < 0.35) D.escape = { h: pip.h + (Math.random() < 0.5 ? 1 : -1) * (2 + Math.random()), until: D.clock + 2.4 };
         D.chk = { t: D.clock, x: pip.x, z: pip.z };
       }
       if (D.escape && D.clock > D.escape.until) D.escape = null;
@@ -863,48 +1053,106 @@
         const w = 0.5 * Math.sin(D.clock * 0.21 + wander[0]) + 0.32 * Math.sin(D.clock * 0.53 + wander[1]);
         const hd = D.escape ? D.escape.h : pip.h + w * 0.3;
         c.wt = steer(Math.sin(hd), Math.cos(hd));
-        c.vt = WALK_V * D.pace * (1 - 0.35 * Math.min(1, Math.abs(c.wt) / 1.25));
+        c.vt = WALK_V * D.pace * (1 - 0.35 * Math.min(1, Math.abs(c.wt) / 1.1));
         const P = interesting();
-        c.look = P ? lookAt.set(P.x, P.top, P.z) : ahead(3, 0.5, 0.3 * Math.sin(D.clock * 0.7));
+        c.look = P ? lookAt.set(P.x, P.top, P.z) : ahead(3, 0.6, 0.3 * Math.sin(D.clock * 0.7));
         if (D.t > D.dur) {
           const r = Math.random();
           if (r < 0.25) setState('look'); else if (r < 0.43) setState('hi'); else if (r < 0.5) setState('doze'); else setState('walk', { dur: 7 + Math.random() * 8 });
         }
       } else if (D.state === 'look') {
         const k = D.t;
-        const tgt = k < 1.6 ? D.h0 + 0.75 : k < 3.3 ? D.h0 - 0.6 : D.h0;
-        c.wt = clamp(angTo(pip.h, tgt) * 2.4, -1, 1);
-        c.look = ahead(3, 0.8, k < 1.6 ? 0.7 : k < 3.3 ? -0.7 : 0);
+        const tgt = k < 1.8 ? D.h0 + 0.75 : k < 3.6 ? D.h0 - 0.6 : D.h0;
+        c.wt = clamp(angTo(pip.h, tgt) * 2.2, -0.9, 0.9);
+        c.look = ahead(3, 1, k < 1.8 ? 0.7 : k < 3.6 ? -0.7 : 0);
         c.wide = true;
-        if (k > 4.3) setState('walk', { dur: 6 + Math.random() * 6 });
+        if (k > 4.6) setState('walk', { dur: 6 + Math.random() * 6 });
       } else if (D.state === 'hi') {
         const err = angTo(pip.h, cam.az);
-        c.look = lookAt.set(pip.x + Math.sin(cam.az) * 5, pip.gy + 3, pip.z + Math.cos(cam.az) * 5);
+        c.look = lookAt.set(pip.x + Math.sin(cam.az) * 5, pip.gy + 3.5, pip.z + Math.cos(cam.az) * 5);
         if (D.phase === 0) {
-          c.wt = clamp(err * 3, -1.4, 1.4);
-          if (Math.abs(err) < 0.25 || D.t > 2) { D.phase = 1; D.t0 = D.t; c.blink = true; }
+          c.wt = clamp(err * 2.6, -1.2, 1.2);
+          if (Math.abs(err) < 0.25 || D.t > 2.4) { D.phase = 1; D.t0 = D.t; c.blink = true; }
         } else {
           const k = D.t - D.t0;
-          c.wt = clamp(err * 2, -0.8, 0.8);
+          c.wt = clamp(err * 2, -0.7, 0.7);
           c.happy = true;
-          c.crouch = 0.42 * (0.5 - 0.5 * Math.cos(TAU * clamp(k / 0.5, 0, 3)));   // three little bounces
-          if (k > 2.4) setState('walk', { dur: 6 + Math.random() * 6 });
+          c.crouch = 0.4 * (0.5 - 0.5 * Math.cos(TAU * clamp(k / 0.6, 0, 3)));   // three little bounces
+          if (k > 2.8) setState('walk', { dur: 6 + Math.random() * 6 });
         }
       } else if (D.state === 'doze') {
-        c.crouch = D.t > 0.3 && D.t < 5.6 ? 1 : 0;
-        c.sleepy = D.t > 0.9 && D.t < 5.4;
-        c.look = ahead(2, -0.4);
-        if (D.t > 6.2) setState('walk', { dur: 6 + Math.random() * 6 });
+        c.crouch = D.t > 0.3 && D.t < 6.2 ? 1 : 0;
+        c.sleepy = D.t > 0.9 && D.t < 6;
+        c.look = ahead(2, -0.3);
+        if (D.t > 6.8) setState('walk', { dur: 6 + Math.random() * 6 });
       } else if (D.state === 'goto') {
         const gx = D.goal.x - pip.x, gz = D.goal.z - pip.z, gd = Math.hypot(gx, gz);
         c.wt = steer(gx, gz);
-        c.vt = HURRY_V * clamp(gd / 0.5, 0.3, 1);
-        c.look = lookAt.set(D.goal.x, height(D.goal.x, D.goal.z) + 0.2, D.goal.z);
+        c.vt = HURRY_V * clamp(gd / 0.6, 0.3, 1);
+        c.look = lookAt.set(D.goal.x, height(D.goal.x, D.goal.z) + 0.3, D.goal.z);
         if (gd < D.best - 0.05) { D.best = gd; D.bestT = D.t; }
-        if (gd < 0.16) { ring(D.goal.x, D.goal.z, { r0: 0.14, r1: 0.55, dur: 0.7, color: ACCENT, opacity: 0.55 }); flag.visible = false; setState('hi'); }
-        else if (D.t - D.bestT > 3) { flag.visible = false; setState('look'); }
+        if (gd < 0.2) { ring(D.goal.x, D.goal.z, { r0: 0.14, r1: 0.6, dur: 0.7, color: ACCENT, opacity: 0.55 }); flag.visible = false; setState('hi'); }
+        else if (D.t - D.bestT > 3.5) { flag.visible = false; setState('look'); }
       }
       return c;
+    }
+
+    // Drones escort in a loose ring, now and then one scouts a nearby tree or rock; one flies ahead to your marker;
+    // they gather and roll when Pip says hi, and land around it when it powers down.
+    const swarm = { t: 0, scout: null, nextScout: 4 };
+    const _dt = new THREE.Vector3(), _dl = new THREE.Vector3();
+    function updateDrones(dt, c) {
+      swarm.t += dt;
+      const t = swarm.t;
+      const landed = D.state === 'doze' && D.t > 0.8 && D.t < 6.2;
+      const hi = D.state === 'hi' && D.phase === 1;
+      swarm.nextScout -= dt;
+      if (!swarm.scout && swarm.nextScout <= 0 && D.state === 'walk') {
+        const cands = near.filter((P) => P.type !== 'stake' && Math.hypot(P.x - pip.x, P.z - pip.z) < 3.4);
+        if (cands.length) {
+          const P = cands[(Math.random() * cands.length) | 0];
+          swarm.scout = { i: (Math.random() * 3) | 0, P, until: t + 3.6 };
+          ring(P.x, P.z, { r0: 0.1, r1: 0.7, dur: 1.1, color: GLOW, opacity: 0.6 });
+        }
+        swarm.nextScout = 5 + Math.random() * 6;
+      }
+      if (swarm.scout && (t > swarm.scout.until || D.state !== 'walk')) swarm.scout = null;
+      drones.forEach((d, i) => {
+        let look = c.look || ahead(3, 0.6);
+        const mood = { landed, happy: hi, roll: 0 };
+        if (landed) {
+          const a = pip.h + [1.9, Math.PI, -1.9][i];
+          const x = pip.x + Math.sin(a) * 0.85, z = pip.z + Math.cos(a) * 0.85;
+          _dt.set(x, height(x, z) + 0.145, z);
+          look = _dl.set(pip.x, pip.gy + 0.8, pip.z);
+        } else if (hi) {
+          const k = D.t - D.t0, s = Math.sin(cam.az), co = Math.cos(cam.az);
+          const side = i - 1;
+          _dt.set(pip.x + s * 0.3 + co * side * 0.9, pip.gy + 1.5 + (side === 0 ? 0.42 : 0), pip.z + co * 0.3 - s * side * 0.9);
+          look = _dl.set(pip.x + s * 6, pip.gy + 3, pip.z + co * 6);
+          const r = clamp((k - 0.25 - i * 0.3) / 0.7, 0, 1);
+          mood.roll = r * r * (3 - 2 * r) * TAU;                                      // a barrel roll each, one after the other
+        } else if (D.state === 'goto' && i === 0) {
+          _dt.set(D.goal.x, height(D.goal.x, D.goal.z) + 0.95, D.goal.z);
+          look = _dl.set(pip.x, pip.gy + 0.8, pip.z);
+        } else if (swarm.scout && swarm.scout.i === i) {
+          const P = swarm.scout.P, a = t * 1.6;
+          _dt.set(P.x + Math.sin(a) * 0.35, P.top + 0.35, P.z + Math.cos(a) * 0.35);
+          look = _dl.set(P.x, P.top - 0.2, P.z);
+        } else {
+          const a = pip.h + [0.95, Math.PI, -0.95][i] + 0.25 * Math.sin(t * 0.4 + i * 2);
+          const r = 1.1 + 0.12 * Math.sin(t * 0.7 + i * 2);
+          const x = pip.x + Math.sin(a) * r, z = pip.z + Math.cos(a) * r;
+          _dt.set(x, Math.max(pip.gy, height(x, z)) + 1.4 + 0.12 * Math.sin(t * 0.9 + i * 1.7) + (i === 1 ? 0.12 : 0), z);
+        }
+        // keep clear of each other
+        for (const o of drones) {
+          if (o === d) continue;
+          const dx = d.pos.x - o.pos.x, dy = d.pos.y - o.pos.y, dz = d.pos.z - o.pos.z, dd = Math.hypot(dx, dy, dz);
+          if (dd < 0.55 && dd > 1e-3) { const p = (0.55 - dd) / dd * 2.5; _dt.x += dx * p; _dt.y += dy * p; _dt.z += dz * p; }
+        }
+        d.update(dt, _dt, look, mood);
+      });
     }
 
     function sendTo(x, z) {
@@ -916,7 +1164,7 @@
       D.goal.set(x, 0, z);
       setState('goto', { best: 1e9, bestT: 0 });
       flag.position.set(x, height(x, z), z); flag.visible = true; flag.userData.t = 0;
-      ring(x, z, { r0: 0.05, r1: 0.32, dur: 0.5, color: ACCENT, opacity: 0.5 });
+      ring(x, z, { r0: 0.05, r1: 0.35, dur: 0.5, color: ACCENT, opacity: 0.5 });
       return true;
     }
 
@@ -926,7 +1174,7 @@
       const k = snap ? 1 : damp(2.4, dt);
       cam.x += (pip.x + Math.sin(pip.h) * pip.v * 0.8 - cam.x) * k;
       cam.z += (pip.z + Math.cos(pip.h) * pip.v * 0.8 - cam.z) * k;
-      cam.y += (pip.gy + 0.45 - cam.y) * k;
+      cam.y += (pip.gy + 0.6 - cam.y) * k;
       cam.az = wrap(cam.az + angTo(cam.az, cam.azT) * (snap ? 1 : damp(5, dt)));
       cam.zoom += (cam.zoomT - cam.zoom) * (snap ? 1 : damp(6, dt));
       const ce = Math.cos(CAM_EL) * CAM_DIST, se = Math.sin(CAM_EL) * CAM_DIST;
@@ -937,7 +1185,7 @@
       key.target.position.set(cam.x, cam.y, cam.z);
     }
     const rotate = (dir) => { cam.azT = wrap(cam.azT + dir * Math.PI / 2); };
-    const zoomBy = (f) => { cam.zoomT = clamp(cam.zoomT * f, 0.6, 2.2); };
+    const zoomBy = (f) => { cam.zoomT = clamp(cam.zoomT * f, 0.6, 2.4); };
 
     // ================================================================ per-frame effects
     function updateFx(dt) {
@@ -955,15 +1203,16 @@
         r.m.material.opacity = r.opacity * (1 - Math.min(1, r.t));
         if (r.t >= 1) { scene.remove(r.m); r.m.material.dispose(); rings.splice(i, 1); }
       }
-      // trees standing between the camera and Pip turn see-through
+      // trees standing between the camera and the walker turn see-through
       const cx = Math.sin(cam.az), cz = Math.cos(cam.az);
       for (const E of props.values()) {
         const P = E.P;
         if (!P) continue;
         const dx = P.x - pip.x, dz = P.z - pip.z, along = dx * cx + dz * cz, across = Math.abs(dx * cz - dz * cx);
-        const hide = along > -0.2 && along < 2.6 && across < P.r + 0.42 && P.type !== 'stake';
+        const hide = along > -0.2 && along < 3 && across < P.r + 0.6 && P.type !== 'stake';
         P.m.material = hide ? MAT.propGhost : MAT.prop;
       }
+      pipBlob.position.set(pip.x, pip.gy + 0.01, pip.z);
       if (flag.visible) {
         const F = flag.userData;
         F.t += dt;
@@ -1054,8 +1303,10 @@
     let last = performance.now(), hud = 0;
     function step(dt) {
       updateProps(dt);
-      nearProps(3.5);
-      pip.update(dt, think(dt));
+      nearProps(3.8);
+      const c = think(dt);
+      pip.update(dt, c);
+      updateDrones(dt, c);
       updateFx(dt);
     }
     function frame(now) {
@@ -1073,13 +1324,13 @@
 
     recenterTerrain(cam.x, cam.z);
     updateProps(0, true);
-    nearProps(3.5);
-    for (let i = 0; i < 30; i++) pip.update(1 / 60, { vt: 0, wt: 0 });
+    nearProps(3.8);
+    for (let i = 0; i < 30; i++) { const c = { vt: 0, wt: 0 }; pip.update(1 / 60, c); updateDrones(1 / 60, c); }
     updateCamera(0, true);
     setPaused(paused);
     renderer.render(scene, camera);
     $('#loader').classList.add('gone');
-    window.pip = { pip, D, cam, props, setState, sendTo, sayHi, setPaused, step, rotate, zoomBy, updateCamera: (dt) => { updateCamera(dt); recenterTerrain(cam.x, cam.z); }, render: () => renderer.render(scene, camera) };
+    window.pip = { pip, drones, D, cam, props, setState, sendTo, sayHi, setPaused, step, rotate, zoomBy, updateCamera: (dt) => { updateCamera(dt); recenterTerrain(cam.x, cam.z); }, render: () => renderer.render(scene, camera) };
     requestAnimationFrame((t) => { last = t; frame(t); });
   </script>
 </body>
