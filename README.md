@@ -18,12 +18,17 @@ The page is a single file. It loads three.js r170 from jsDelivr and fonts from G
 - **The studio**: the floor and the background are the same white, so there is no horizon and the floor never ends. The only marks are soft shadows and footprints, which fade after about 20 seconds.
 - **Survey grid**: toward the edges and corners of the view a grid shows through the floor: fine lines every 0.5 m, bold lines every 2.5 m with a cross on each bold corner, and faint contour lines of an imaginary terrain. It is fixed to the world, so it scrolls past as Pip walks, while the middle of the view stays clean white.
 - **The walker**:
-  - An egg-shaped white hull with panel seams and screws, and a navy crest.
-  - A navy face frame around a hexagonal socket holding one glowing blue eye, with a vented chin plate and blue light strips on the cheeks.
-  - Sensor pods on both sides and big hip drums under white shells.
-  - Legs with white shin armour and navy knee plates, and wheeled boots.
-  - The eye barrel turns to look at things. The iris blinks, turns into "^" when Pip says hi, and dims when it powers down.
-- **The drones**: three round white scouts with navy caps, one blue eye each, and a slow two-bladed rotor on each side.
+  - The hull is built from separate armour plates over a dark core, so real gaps show between the panels.
+  - Every plate has bolts in its corners, and the navy crest over the top is raised.
+  - A navy face frame surrounds a hexagonal socket holding one glowing blue eye. The eye has a knurled focus ring that turns as it looks around, and two small indicator lights.
+  - A vented chin plate, blue light strips on the cheeks, small windows with blue slits, and grilles on the flanks and back.
+  - Stepped sensor pods sit on both sides, over ribbed dark rings. Each pod has a knurled drum that keeps turning slowly.
+  - Geared hips under white shells, with bolt-ringed discs. The hip gears turn with the thighs.
+  - Legs with armoured thighs, knee and ankle gears that turn as the joints bend, and a piston behind each knee.
+  - Flared shin armour with navy knee plates, grooves and bolts.
+  - Boots with a heel block, split toes, a navy instep plate and three wheels a side.
+  - The iris blinks, turns into "^" when Pip says hi, and dims when it powers down.
+- **The drones**: three round white scouts with navy caps and belly bands, one blue eye each, a small antenna, a glowing rear thruster, and a slow two-bladed rotor on each side.
   - They escort Pip in a loose ring, banking as they move.
   - Now and then one flies out to scan a patch of floor while Pip watches it.
   - One flies ahead and hovers over any spot you click.

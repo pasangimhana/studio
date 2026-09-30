@@ -151,6 +151,7 @@
     import * as THREE from 'three';
     import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
     import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+    import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
     const $ = (s) => document.querySelector(s);
     const TAU = Math.PI * 2;
@@ -182,6 +183,7 @@
     // ---------------------------------------------------------------- materials (armour white, navy trim, dark mechanics, blue glow)
     const MAT = {
       armor: new THREE.MeshPhysicalMaterial({ color: 0xe8e7e3, roughness: 0.46, clearcoat: 0.35, clearcoatRoughness: 0.3 }),
+      armor2: new THREE.MeshPhysicalMaterial({ color: 0xcfd0cc, roughness: 0.5, clearcoat: 0.25, clearcoatRoughness: 0.35 }),
       navy: new THREE.MeshPhysicalMaterial({ color: 0x2f4169, roughness: 0.5, clearcoat: 0.15, clearcoatRoughness: 0.35 }),
       mech: new THREE.MeshStandardMaterial({ color: 0x2b2c30, roughness: 0.5, metalness: 0.45 }),
       mech2: new THREE.MeshStandardMaterial({ color: 0x3e4046, roughness: 0.38, metalness: 0.55 }),
@@ -190,26 +192,6 @@
       glow: new THREE.MeshBasicMaterial({ color: GLOW, toneMapped: false }),
       glowHot: new THREE.MeshBasicMaterial({ color: 0xc9f3ff, toneMapped: false }),
       glowDim: new THREE.MeshBasicMaterial({ color: 0x2a6178, toneMapped: false }),
-    };
-    MAT.crest = MAT.navy.clone(); MAT.crest.side = THREE.DoubleSide;
-    // hull: the armour material with panel seams and panel shading drawn in object space
-    MAT.hull = MAT.armor.clone();
-    MAT.hull.onBeforeCompile = (sh) => {
-      sh.vertexShader = sh.vertexShader
-        .replace('#include <common>', '#include <common>\nvarying vec3 vHull;')
-        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvHull = position;');
-      sh.fragmentShader = sh.fragmentShader
-        .replace('#include <common>', '#include <common>\nvarying vec3 vHull;\nfloat seamAt(float f, float c, float w) { return 1.0 - smoothstep(w, w + 1.5 * fwidth(f), abs(f - c)); }')
-        .replace('#include <color_fragment>', `#include <color_fragment>
-          vec3 n = vHull / vec3(${SX}, ${SY}, ${SZ});
-          float side = step(0.33, abs(n.x)), front = step(0.62, n.z);
-          float seam = seamAt(abs(n.x), 0.33, 0.004) * step(-0.25, n.y);
-          seam = max(seam, seamAt(n.y, -0.3, 0.005));
-          seam = max(seam, seamAt(n.z, 0.62, 0.005) * side * step(-0.3, n.y));
-          seam = max(seam, seamAt(n.y, 0.4, 0.005) * side * (1.0 - front));
-          seam = max(seam, seamAt(n.z, -0.4, 0.005) * step(-0.3, n.y));
-          diffuseColor.rgb *= n.y < -0.3 ? 0.87 : (side > 0.5 && front < 0.5 && n.y < 0.4 ? 0.94 : 1.0);
-          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.09, 0.1, 0.12), seam * 0.8);`);
     };
 
     function mesh(geo, mat, parent) {
@@ -222,6 +204,21 @@
     const sphere = (r, mat, parent, seg = 32) => mesh(new THREE.SphereGeometry(r, seg, Math.round(seg * 0.66)), mat, parent);
     const axle = (r, h, mat, parent, seg = 24) => mesh(new THREE.CylinderGeometry(r, r, h, seg), mat, parent);
     const dome = (r) => new THREE.SphereGeometry(r, 40, 12, 0, TAU, 0, Math.PI / 2).rotateX(Math.PI / 2);   // cap facing +z
+    // Many small parts as one mesh: [[geometry, matrix], ...].
+    const merged = (parts) => mergeGeometries(parts.map(([g, m]) => g.clone().applyMatrix4(m)));
+    const at = (x, y, z, rx = 0, ry = 0, rz = 0) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)), new THREE.Vector3(1, 1, 1));
+    // Spur gear with its axle along +Y.
+    function gearGeo(r, w, teeth) {
+      const tooth = new THREE.BoxGeometry(r * 0.3, w, r * 0.22);
+      const parts = [new THREE.CylinderGeometry(r * 0.86, r * 0.86, w, 28), new THREE.CylinderGeometry(r * 0.42, r * 0.42, w * 1.2, 18)];
+      for (let i = 0; i < teeth; i++) parts.push(tooth.clone().translate(r * 0.86, 0, 0).rotateY((i / teeth) * TAU));
+      return mergeGeometries(parts);
+    }
+    // Ring of small boxes around the +Y axis (knurling, ribs), as one geometry.
+    function knurl(r, n, w, h, d, y = 0) {
+      const b = new THREE.BoxGeometry(w, h, d);
+      return mergeGeometries(Array.from({ length: n }, (_, i) => b.clone().translate(r, y, 0).rotateY((i / n) * TAU)));
+    }
     // Object from a to b along its +Y, with +Z turned toward `fwd` (keeps armour facing forward).
     const _ay = new THREE.Vector3(), _az = new THREE.Vector3(), _ax = new THREE.Vector3(), _am = new THREE.Matrix4();
     function aimBasis(o, a, b, fwd) {
@@ -230,6 +227,69 @@
       _ax.crossVectors(_ay, _az);
       o.position.copy(a);
       o.quaternion.setFromRotationMatrix(_am.makeBasis(_ax, _ay, _az));
+    }
+
+    // ---------------------------------------------------------------- the hull surface
+    // Directions on the egg in (a, b): b = angle from the +X axis (the side pods sit on these two poles),
+    // a = angle around that axis (0 top, π/2 front, π bottom, -π/2 back). Armour plates are rectangles in (a, b).
+    const _hd = new THREE.Vector3();
+    function hullAt(a, b, out, nOut) {
+      _hd.set(Math.cos(b), Math.sin(b) * Math.cos(a), Math.sin(b) * Math.sin(a));
+      out.set(SX * _hd.x, CY + SY * _hd.y, CZ + SZ * _hd.z);
+      if (nOut) nOut.set(_hd.x / SX, _hd.y / SY, _hd.z / SZ).normalize();
+      return out;
+    }
+    // A thick armour plate covering [a0,a1]×[b0,b1] of the hull, shrunk by `gap` so the dark core shows between plates.
+    function hullPatch(a0, a1, b0, b1, { thick = 0.026, lift = 0, gap = 0.013 } = {}) {
+      a0 += gap; a1 -= gap; b0 += gap; b1 -= gap;
+      const na = Math.max(2, Math.ceil((a1 - a0) / 0.05)), nb = Math.max(2, Math.ceil((b1 - b0) / 0.05));
+      const pos = [], nor = [], idx = [], P = new THREE.Vector3(), N = new THREE.Vector3();
+      const vtx = (a, b, inner) => { hullAt(a, b, P, N); P.addScaledVector(N, lift - (inner ? thick : 0)); return new THREE.Vector3().copy(P); };
+      for (const inner of [false, true]) {
+        const base = pos.length / 3, s = inner ? -1 : 1;
+        for (let i = 0; i <= na; i++) for (let j = 0; j <= nb; j++) {
+          const a = a0 + ((a1 - a0) * i) / na, b = b0 + ((b1 - b0) * j) / nb;
+          const p = vtx(a, b, inner);
+          pos.push(p.x, p.y, p.z); nor.push(N.x * s, N.y * s, N.z * s);
+        }
+        for (let i = 0; i < na; i++) for (let j = 0; j < nb; j++) {
+          const k = base + i * (nb + 1) + j, k1 = k + nb + 1;
+          if (inner) idx.push(k, k1, k + 1, k + 1, k1, k1 + 1); else idx.push(k, k + 1, k1, k + 1, k1 + 1, k1);
+        }
+      }
+      // rim walls with flat normals facing out of the plate
+      const rim = [];
+      for (let i = 0; i <= na; i++) rim.push([a0 + ((a1 - a0) * i) / na, b0]);
+      for (let j = 1; j <= nb; j++) rim.push([a1, b0 + ((b1 - b0) * j) / nb]);
+      for (let i = na - 1; i >= 0; i--) rim.push([a0 + ((a1 - a0) * i) / na, b1]);
+      for (let j = nb - 1; j >= 0; j--) rim.push([a0, b0 + ((b1 - b0) * j) / nb]);
+      const C = hullAt((a0 + a1) / 2, (b0 + b1) / 2, new THREE.Vector3());
+      const n = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), out = new THREE.Vector3();
+      for (let r = 0; r < rim.length - 1; r++) {
+        const eo = vtx(rim[r][0], rim[r][1], false), fo = vtx(rim[r + 1][0], rim[r + 1][1], false);
+        const ei = vtx(rim[r][0], rim[r][1], true), fi = vtx(rim[r + 1][0], rim[r + 1][1], true);
+        n.crossVectors(e1.subVectors(fo, eo), e2.subVectors(ei, eo)).normalize();
+        let quad = [eo, fo, fi, ei];
+        if (n.dot(out.addVectors(eo, fo).multiplyScalar(0.5).sub(C)) < 0) { quad = [eo, ei, fi, fo]; n.negate(); }
+        const base = pos.length / 3;
+        for (const q of quad) { pos.push(q.x, q.y, q.z); nor.push(n.x, n.y, n.z); }
+        idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+      g.setIndex(idx);
+      return g;
+    }
+    // Frame sitting on the hull at (a, b): +Z along the surface normal, +X along b. For bolts, vents, windows.
+    const _hp = new THREE.Vector3(), _hn = new THREE.Vector3(), _ht = new THREE.Vector3(), _hy = new THREE.Vector3();
+    function hullMatrix(a, b, lift) {
+      hullAt(a, b + 0.001, _ht);
+      hullAt(a, b, _hp, _hn);
+      _ht.sub(_hp);
+      _ht.addScaledVector(_hn, -_ht.dot(_hn)).normalize();
+      _hy.crossVectors(_hn, _ht);
+      return new THREE.Matrix4().makeBasis(_ht, _hy, _hn).setPosition(_hp.addScaledVector(_hn, lift));
     }
 
     // Front of the hull, and flat 2D plates bent onto it along its normal (their undersides sink in so no gap shows).
@@ -242,20 +302,22 @@
     }
     const rectPts = (cx, cy, w, h) => [[cx - w / 2, cy - h / 2], [cx + w / 2, cy - h / 2], [cx + w / 2, cy + h / 2], [cx - w / 2, cy + h / 2]];
     const hexPts = (r, cy, wide = 1.1) => Array.from({ length: 6 }, (_, i) => [Math.cos((i * Math.PI) / 3) * r * wide, cy + Math.sin((i * Math.PI) / 3) * r]);
-    const _hn = new THREE.Vector3();
+    const _cn = new THREE.Vector3();
     function plate(shape, mat, depth, lift, parent) {
       const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 6 });
       const p = g.attributes.position;
       for (let i = 0; i < p.count; i++) {
         const x = p.getX(i), y = p.getY(i), z = p.getZ(i), hz = hullZ(x, y), off = z < 1e-5 ? -0.015 : lift + z;
-        _hn.set(x / (SX * SX), (y - CY) / (SY * SY), (hz - CZ) / (SZ * SZ)).normalize();
-        p.setXYZ(i, x + _hn.x * off, y + _hn.y * off, hz + _hn.z * off);
-        g.attributes.normal.setXYZ(i, _hn.x, _hn.y, _hn.z);
+        _cn.set(x / (SX * SX), (y - CY) / (SY * SY), (hz - CZ) / (SZ * SZ)).normalize();
+        p.setXYZ(i, x + _cn.x * off, y + _cn.y * off, hz + _cn.z * off);
+        g.attributes.normal.setXYZ(i, _cn.x, _cn.y, _cn.z);
       }
       return mesh(g, mat, parent);
     }
-    // Point on the hull in direction (nx, ny, nz) of its unit sphere, in body coordinates.
-    function hullPoint(nx, ny, nz) { const l = Math.hypot(nx, ny, nz); return new THREE.Vector3((SX * nx) / l, CY + (SY * ny) / l, CZ + (SZ * nz) / l); }
+    // A flat extruded badge with bevelled edges (knee plates, instep plates, crotch armour).
+    function badge(pts, depth, bevel, mat, parent) {
+      return mesh(new THREE.ExtrudeGeometry(new THREE.Shape(pts.map(V2)), { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2 }), mat, parent);
+    }
 
     function radialTexture(stops) {
       const c = document.createElement('canvas'); c.width = c.height = 64;
@@ -272,8 +334,9 @@
     }
 
     // ================================================================ THE WALKER
-    // Egg-shaped armoured hull with one blue eye, side sensor pods, big hip drums; legs with armoured shins
-    // and wheeled boots. Feet are stepped in world space and stay planted; legs are two-bone IK, knees forward.
+    // Egg-shaped hull built from separate armour plates over a dark core, one blue eye in a navy face frame, stepped
+    // sensor pods on the sides, geared hips; legs with pistons, geared knees and ankles, flared shin armour and
+    // wheeled split-toe boots. Feet are stepped in world space and stay planted; legs are two-bone IK, knees forward.
     class Walker {
       constructor(scene) {
         this.scene = scene;
@@ -283,8 +346,8 @@
         this.body.add(this.shell);
         this.root.add(this.body);
         scene.add(this.root);
-        this.strips = [];
-        this.buildHull(); this.buildEye(); this.buildLegs();
+        this.strips = []; this.drums = []; this.hipGears = [];
+        this.buildHull(); this.buildUnder(); this.buildEye(); this.buildLegs();
 
         this.x = 0; this.z = 0; this.h = 0; this.v = 0; this.w = 0; this.accel = 0; this.crouch = 0;
         this.t = 0; this.dist = 0; this.steps = 0; this.lean = 0; this.thump = 0; this.flash = 0; this.dip = 0;
@@ -299,55 +362,94 @@
         this.saccade = { t: 0, x: 0, y: 0 }; this.lastLook = 0;
         this.onStep = () => {};
         const V = () => new THREE.Vector3();
-        Object.assign(this, { _t: V(), _a: V(), _h: V(), _k: V(), _e: V(), _p: V(), _f: V(), _l: V() });
+        Object.assign(this, { _t: V(), _a: V(), _h: V(), _k: V(), _e: V(), _p: V(), _f: V(), _l: V(), _u: V(), _v: V(), _pa: V(), _pb: V() });
       }
 
       buildHull() {
         const S = this.shell;
-        const hull = mesh(new THREE.SphereGeometry(1, 72, 48).scale(SX, SY, SZ), MAT.hull, S);
-        hull.position.set(0, CY, CZ);
-        // navy crest from the brow over the top to the back
-        const crest = mesh(new THREE.SphereGeometry(1, 56, 6, -1.65, 2.6, Math.PI / 2 - 0.25, 0.5).rotateZ(-Math.PI / 2).scale(SX * 1.02, SY * 1.02, SZ * 1.02), MAT.crest, S);
-        crest.position.set(0, CY, CZ);
-        // face: navy frame around a hexagonal eye socket, chin plate with three vents, two swept arms
+        // dark core, seen through the gaps between the plates
+        mesh(new THREE.SphereGeometry(1, 64, 40).scale(SX * 0.965, SY * 0.965, SZ * 0.965), MAT.mech, S).position.set(0, CY, CZ);
+        // armour: a centre band (navy crest over the top), then an inner and an outer band on each side, split front to back
+        const H = Math.PI / 2, CB = 0.25, IB = 1.08, OB = 0.5, screws = [];
+        const screwGeo = new THREE.CylinderGeometry(0.009, 0.009, 0.008, 10).rotateX(Math.PI / 2);
+        const band = (b0, b1, cuts, mats, opts = {}) => cuts.slice(0, -1).forEach((a0, k) => {
+          const a1 = cuts[k + 1], o = opts[k] || {};
+          mesh(hullPatch(a0, a1, b0, b1, o), MAT[mats[k]], S);
+          for (const [a, b] of [[a0 + 0.075, b0 + 0.075], [a1 - 0.075, b0 + 0.075], [a0 + 0.075, b1 - 0.075], [a1 - 0.075, b1 - 0.075]]) screws.push([screwGeo, hullMatrix(a, b, (o.lift || 0) + 0.002)]);
+        });
+        band(H - CB, H + CB, [-2.9, -1.75, 0.95, 2.45, 3.38], ['armor', 'navy', 'armor', 'armor2'], { 1: { lift: 0.007, thick: 0.034 } });
+        for (const [b0, b1] of [[IB, H - CB], [H + CB, Math.PI - IB]]) band(b0, b1, [-2.5, -1.3, 0.2, 1.15, 2.2, 3.78], ['armor', 'armor', 'armor', 'armor', 'armor2']);
+        for (const [b0, b1] of [[OB, IB], [Math.PI - IB, Math.PI - OB]]) band(b0, b1, [-2.4, -0.9, 0.5, 1.5, 2.5, 3.88], ['armor', 'armor', 'armor', 'armor', 'armor2']);
+        mesh(merged(screws), MAT.mech2, S);
+        // ribbed dark rings around the side poles, under the sensor pods
+        const ribGeo = new THREE.BoxGeometry(0.05, 0.014, 0.022), ribs = [];
+        for (const b of [0.43, Math.PI - 0.43]) for (let k = 0; k < 28; k++) ribs.push([ribGeo, hullMatrix((k / 28) * TAU, b, -0.012)]);
+        mesh(merged(ribs), MAT.mech2, S);
+        // small windows with a blue slit high on the flanks, dark grilles low on the flanks, a vent on the back
+        const slat = new THREE.BoxGeometry(0.1, 0.009, 0.01), slit = new THREE.BoxGeometry(0.05, 0.008, 0.006);
+        for (const s of [0, 1]) {
+          const flip = (b) => (s ? Math.PI - b : b);
+          const w = rbox(0.078, 0.036, 0.014, 0.006, MAT.mech, S); w.applyMatrix4(hullMatrix(0.72, flip(0.95), 0.004));
+          const g = mesh(slit, MAT.glow, S); g.applyMatrix4(hullMatrix(0.72, flip(0.95), 0.011));
+          const gr = rbox(0.13, 0.09, 0.014, 0.008, MAT.mech, S); gr.applyMatrix4(hullMatrix(2.62, flip(0.72), 0.004));
+          mesh(merged([-0.03, -0.01, 0.01, 0.03].map((y) => [slat, hullMatrix(2.62, flip(0.72), 0.012).multiply(at(0, y, 0))])), MAT.mech2, S);
+        }
+        const vent = rbox(0.22, 0.11, 0.016, 0.01, MAT.mech, S); vent.applyMatrix4(hullMatrix(-2.3, Math.PI / 2, 0.004));
+        mesh(merged([-0.036, -0.012, 0.012, 0.036].map((y) => [new THREE.BoxGeometry(0.19, 0.01, 0.01), hullMatrix(-2.3, Math.PI / 2, 0.013).multiply(at(0, y, 0))])), MAT.mech2, S);
+        // face: navy frame around a hexagonal eye socket, chin plate with three vents, two swept arms, cheek light strips
         const ring = new THREE.Shape(densify(hexPts(0.15, EYE_Y), 5));
         ring.holes.push(new THREE.Path(densify(hexPts(0.112, EYE_Y), 5)));
-        plate(ring, MAT.navy, 0.022, 0.004, S);
+        plate(ring, MAT.navy, 0.024, 0.004, S);
         plate(new THREE.Shape(densify(hexPts(0.114, EYE_Y), 5)), MAT.mech, 0.012, 0.002, S);
+        for (const s of [1, -1]) { const d = sphere(0.009, MAT.glow, S, 10); d.position.set(s * 0.148, EYE_Y, hullZ(s * 0.148, EYE_Y) + 0.03); }
         const c0 = EYE_Y - 0.1, c1 = EYE_Y - 0.28, cm = (c0 + c1) / 2 - 0.01;
         plate(new THREE.Shape(densify(rectPts(0, cm, 0.15, 0.11), 5)), MAT.mech, 0.008, 0, S);
         const chin = new THREE.Shape(densify([[-0.1, c0], [0.1, c0], [0.075, c1], [-0.075, c1]], 6));
         for (const x of [-0.042, 0, 0.042]) chin.holes.push(new THREE.Path(rectPts(x, cm, 0.02, 0.085).map(V2)));
-        plate(chin, MAT.navy, 0.022, 0.004, S);
+        plate(chin, MAT.navy, 0.024, 0.004, S);
         for (const s of [1, -1]) {
-          plate(new THREE.Shape(densify([[0.1, EYE_Y + 0.09], [0.155, EYE_Y + 0.03], [0.31, EYE_Y + 0.14], [0.25, EYE_Y + 0.22]].map(([x, y]) => [s * x, y]), 6)), MAT.navy, 0.018, 0.004, S);
-          // glowing light strips low on the cheeks, in dark bezels
-          plate(new THREE.Shape(densify(rectPts(s * 0.27, 0.2, 0.13, 0.05), 5)), MAT.mech, 0.01, 0.002, S);
-          this.strips.push(plate(new THREE.Shape(densify(rectPts(s * 0.27, 0.2, 0.1, 0.022), 5)), MAT.glow, 0.015, 0.002, S));
-          // side sensor pod (+Y of the group points outward)
-          const pod = new THREE.Group(); pod.position.set(s * 0.43, CY + 0.03, 0.06); pod.rotation.z = -s * Math.PI / 2; S.add(pod);
-          axle(0.125, 0.05, MAT.navy, pod, 40).position.y = 0.01;
-          axle(0.105, 0.09, MAT.mech, pod, 40).position.y = 0.06;
-          const bez = mesh(new THREE.TorusGeometry(0.098, 0.009, 8, 40), MAT.mech2, pod); bez.rotation.x = Math.PI / 2; bez.position.y = 0.106;
-          axle(0.082, 0.03, MAT.mech2, pod, 40).position.y = 0.115;
-          axle(0.052, 0.014, MAT.glass, pod, 32).position.y = 0.132;
-          // hip drum under the hull, capped with a white shell and a dark concentric disc
-          const hip = new THREE.Group(); hip.position.set(s * HIP_X, 0, 0); hip.rotation.z = -s * Math.PI / 2; S.add(hip);
+          plate(new THREE.Shape(densify([[0.1, EYE_Y + 0.09], [0.155, EYE_Y + 0.03], [0.31, EYE_Y + 0.14], [0.25, EYE_Y + 0.22]].map(([x, y]) => [s * x, y]), 6)), MAT.navy, 0.02, 0.004, S);
+          plate(new THREE.Shape(densify(rectPts(s * 0.27, 0.2, 0.13, 0.05), 5)), MAT.mech, 0.012, 0.002, S);
+          this.strips.push(plate(new THREE.Shape(densify(rectPts(s * 0.27, 0.2, 0.1, 0.022), 5)), MAT.glow, 0.017, 0.002, S));
+          // stepped sensor pod on the side pole (+Y of the group points outward); its ribbed drum turns slowly
+          const pod = new THREE.Group(); pod.position.set(s * SX * 0.97, CY, CZ); pod.rotation.z = -s * Math.PI / 2; S.add(pod);
+          axle(0.165, 0.03, MAT.mech2, pod, 48);
+          axle(0.14, 0.05, MAT.navy, pod, 48).position.y = 0.035;
+          mesh(merged(Array.from({ length: 8 }, (_, i) => [new THREE.SphereGeometry(0.008, 8, 6), at(Math.cos((i / 8) * TAU) * 0.126, 0.061, Math.sin((i / 8) * TAU) * 0.126)])), MAT.steel, pod);
+          const drum = new THREE.Group(); drum.position.y = 0.095; pod.add(drum);
+          axle(0.115, 0.07, MAT.mech, drum, 48);
+          mesh(knurl(0.116, 32, 0.012, 0.06, 0.012), MAT.mech2, drum);
+          this.drums.push(drum);
+          axle(0.094, 0.03, MAT.mech2, pod, 48).position.y = 0.142;
+          const sr = mesh(new THREE.TorusGeometry(0.08, 0.007, 8, 44), MAT.steel, pod); sr.rotation.x = Math.PI / 2; sr.position.y = 0.158;
+          axle(0.068, 0.012, MAT.glass, pod, 40).position.y = 0.158;
+          const ir = mesh(new THREE.TorusGeometry(0.036, 0.005, 8, 32), MAT.navy, pod); ir.rotation.x = Math.PI / 2; ir.position.y = 0.166;
+        }
+      }
+
+      buildUnder() {
+        const S = this.shell;
+        // mechanical core between the hips, with gears showing at the back
+        rbox(0.44, 0.13, 0.28, 0.04, MAT.mech, S).position.set(0, 0.03, 0);
+        for (const x of [-0.11, 0, 0.11]) { const g = mesh(gearGeo(0.05, 0.03, 10), MAT.mech2, S); g.rotation.z = Math.PI / 2; g.position.set(x, 0.0, -0.08); }
+        // crotch armour: a bevelled hexagonal block with a navy chevron and bolts
+        const crotch = badge(hexPts(0.085, 0, 1.4), 0.18, 0.014, MAT.armor, S); crotch.position.set(0, -0.035, -0.04);
+        const chev = badge([[-0.09, 0.03], [0, -0.03], [0.09, 0.03], [0.09, 0.0], [0, -0.06], [-0.09, 0.0]], 0.01, 0.004, MAT.navy, S); chev.position.set(0, -0.02, 0.158);
+        mesh(merged([[-0.085, 0.02], [0.085, 0.02], [-0.06, -0.06], [0.06, -0.06]].map(([x, y]) => [new THREE.SphereGeometry(0.008, 8, 6), at(x, y - 0.035, 0.155)])), MAT.mech2, S);
+        // hips: drum, a gear that turns with the thigh, a white shell and a stepped disc ringed with bolts
+        for (const s of [1, -1]) {
+          const hip = new THREE.Group(); hip.position.set(s * HIP_X, 0, 0); hip.rotation.z = -s * Math.PI / 2; S.add(hip);   // +Y outward
           axle(0.1, 0.2, MAT.mech, hip, 32).position.y = -0.03;
+          const hg = new THREE.Group(); hg.position.y = -0.11; hip.add(hg);
+          mesh(gearGeo(0.115, 0.035, 16), MAT.mech2, hg);
+          this.hipGears.push(hg);
           const cap = mesh(new THREE.SphereGeometry(0.15, 40, 16, 0, TAU, 0, Math.PI / 2), MAT.armor, hip); cap.scale.set(1, 0.72, 1); cap.position.y = 0.03;
-          axle(0.09, 0.03, MAT.mech, hip, 32).position.y = 0.135;
-          axle(0.056, 0.036, MAT.mech2, hip, 32).position.y = 0.15;
-          axle(0.024, 0.04, MAT.navy, hip, 16).position.y = 0.16;
+          axle(0.095, 0.03, MAT.mech, hip, 40).position.y = 0.135;
+          const nr = mesh(new THREE.TorusGeometry(0.08, 0.008, 8, 40), MAT.navy, hip); nr.rotation.x = Math.PI / 2; nr.position.y = 0.151;
+          mesh(merged(Array.from({ length: 8 }, (_, i) => [new THREE.SphereGeometry(0.007, 8, 6), at(Math.cos((i / 8) * TAU + 0.2) * 0.066, 0.151, Math.sin((i / 8) * TAU + 0.2) * 0.066)])), MAT.steel, hip);
+          axle(0.052, 0.036, MAT.mech2, hip, 32).position.y = 0.155;
+          axle(0.024, 0.04, MAT.navy, hip, 16).position.y = 0.165;
         }
-        // screws on the panels
-        for (const [x, y, z] of [[0.36, 0.62, 0.7], [0.36, -0.2, 0.91], [0.75, 0.3, 0.59], [0.62, -0.42, 0.66], [0.42, 0.5, -0.76], [0.8, -0.1, -0.5]]) {
-          for (const s of [1, -1]) sphere(0.009, MAT.mech, S, 8).position.copy(hullPoint(s * x, y, z));
-        }
-        sphere(0.009, MAT.mech, S, 8).position.copy(hullPoint(0, 0.72, -0.69));
-        // under the hull: dark core between the hips and a white crotch plate with navy trim
-        rbox(0.4, 0.12, 0.26, 0.04, MAT.mech, S).position.set(0, 0.03, 0);
-        rbox(0.22, 0.14, 0.22, 0.035, MAT.armor, S).position.set(0, -0.03, 0.05);
-        rbox(0.13, 0.05, 0.03, 0.01, MAT.navy, S).position.set(0, -0.02, 0.165);
       }
 
       buildEye() {
@@ -356,7 +458,10 @@
         this.shell.add(this.eye);
         const E = this.eye;
         const barrel = axle(0.09, 0.07, MAT.mech, E, 40); barrel.rotation.x = Math.PI / 2; barrel.position.z = 0.02;
+        this.eyeRing = new THREE.Group(); this.eyeRing.rotation.x = Math.PI / 2; this.eyeRing.position.z = 0.03; E.add(this.eyeRing);
+        mesh(knurl(0.092, 30, 0.012, 0.045, 0.012), MAT.mech2, this.eyeRing);
         mesh(new THREE.TorusGeometry(0.087, 0.013, 10, 44), MAT.mech2, E).position.z = 0.055;
+        mesh(new THREE.TorusGeometry(0.074, 0.004, 8, 44), MAT.steel, E).position.z = 0.066;
         const lens = mesh(dome(0.078), MAT.glass, E); lens.scale.z = 0.38; lens.position.z = 0.05;
         const c = document.createElement('canvas'); c.width = c.height = 128;
         this.eg = c.getContext('2d');
@@ -372,27 +477,54 @@
 
       buildLegs() {
         const S = this.scene;
+        const gearK = gearGeo(0.075, 0.05, 14), gearA = gearGeo(0.058, 0.035, 12), bolt = new THREE.SphereGeometry(0.009, 8, 6);
+        const kneeShape = [[-0.08, -0.1], [0.08, -0.1], [0.086, 0.035], [0, 0.1], [-0.086, 0.035]];     // point down the shin
+        const instepShape = [[-0.074, 0.07], [0.074, 0.07], [0.058, -0.075], [-0.058, -0.075]];
         this.legs = [1, -1].map((side) => {
-          const thigh = new THREE.Group(); S.add(thigh);                     // +Y from hip to knee
-          axle(0.052, L1, MAT.mech, thigh, 18).position.y = L1 / 2;
-          for (const y of [0.08, L1 - 0.08]) axle(0.066, 0.03, MAT.mech2, thigh, 18).position.y = y;
-          const shin = new THREE.Group(); S.add(shin);                       // +Y from knee to ankle, +Z forward
-          const knee = axle(0.06, 0.15, MAT.mech, shin, 24); knee.rotation.z = Math.PI / 2;
-          const kc = axle(0.032, 0.16, MAT.steel, shin, 12); kc.rotation.z = Math.PI / 2;
-          rbox(0.21, 0.27, 0.21, 0.04, MAT.armor, shin).position.set(0, L2 * 0.44, 0.02);
-          const kp = rbox(0.165, 0.2, 0.045, 0.016, MAT.navy, shin); kp.position.set(0, L2 * 0.32, 0.125); kp.rotation.x = -0.14;
-          const ankle = axle(0.05, 0.17, MAT.mech, shin, 18); ankle.rotation.z = Math.PI / 2; ankle.position.y = L2;
-          const foot = new THREE.Group(); foot.rotation.order = 'YXZ'; S.add(foot);   // at the ankle
-          const aj = axle(0.045, 0.15, MAT.mech2, foot, 18); aj.rotation.z = Math.PI / 2;
-          rbox(0.19, 0.085, 0.3, 0.03, MAT.armor, foot).position.set(0, -0.055, 0.04);
-          rbox(0.196, 0.014, 0.304, 0.006, MAT.mech, foot).position.set(0, -0.094, 0.04);
-          const top = rbox(0.15, 0.032, 0.16, 0.012, MAT.navy, foot); top.position.set(0, -0.008, 0.085); top.rotation.x = 0.1;
-          rbox(0.008, 0.05, 0.09, 0.003, MAT.mech, foot).position.set(0, -0.055, 0.155);
-          for (const s of [1, -1]) for (const z of [-0.075, 0.025]) {
-            const wheel = axle(0.042, 0.032, MAT.mech, foot, 18); wheel.rotation.z = Math.PI / 2; wheel.position.set(s * 0.104, -0.06, z);
-            const hub = axle(0.018, 0.036, MAT.steel, foot, 10); hub.rotation.z = Math.PI / 2; hub.position.copy(wheel.position);
+          // thigh (+Y hip→knee, +Z forward): dark actuator with collars and an armour plate on the outside
+          const thigh = new THREE.Group(); S.add(thigh);
+          axle(0.05, L1, MAT.mech, thigh, 20).position.y = L1 / 2;
+          for (const y of [0.07, L1 * 0.5, L1 - 0.07]) axle(0.064, 0.026, MAT.mech2, thigh, 20).position.y = y;
+          rbox(0.03, 0.17, 0.12, 0.012, MAT.armor, thigh).position.set(-side * 0.066, L1 * 0.5, 0);
+          // shin (+Y knee→ankle, +Z forward)
+          const shin = new THREE.Group(); S.add(shin);
+          const kg = new THREE.Group(); kg.rotation.z = Math.PI / 2; shin.add(kg);                        // gear axle along the knee hinge
+          const kgear = mesh(gearK, MAT.mech, kg);
+          const kc = axle(0.036, 0.13, MAT.steel, shin, 14); kc.rotation.z = Math.PI / 2;
+          for (const x of [-1, 1]) { const hub = axle(0.03, 0.012, MAT.navy, shin, 16); hub.rotation.z = Math.PI / 2; hub.position.x = x * 0.07; }
+          axle(0.04, L2, MAT.mech, shin, 16).position.y = L2 / 2;
+          rbox(0.225, 0.07, 0.215, 0.025, MAT.armor, shin).position.set(0, 0.078, 0.02);                  // flared cuff
+          rbox(0.21, 0.012, 0.2, 0.004, MAT.mech, shin).position.set(0, 0.116, 0.02);
+          rbox(0.2, 0.16, 0.19, 0.03, MAT.armor, shin).position.set(0, 0.198, 0.02);                      // greave
+          const kp = badge(kneeShape, 0.016, 0.007, MAT.navy, shin); kp.position.set(0, 0.16, 0.114); kp.rotation.set(0.1, 0, Math.PI);
+          const detail = [];
+          for (const x of [-1, 1]) for (const z of [0.07, -0.03]) detail.push([new THREE.BoxGeometry(0.004, 0.13, 0.005), at(x * 0.1015, 0.19, z)]);
+          for (let k = 0; k < 3; k++) detail.push([new THREE.BoxGeometry(0.12, 0.01, 0.006), at(0, 0.16 + k * 0.032, -0.076)]);
+          mesh(merged(detail), MAT.mech, shin);
+          mesh(merged([[-0.078, 0.13], [0.078, 0.13], [-0.078, 0.262], [0.078, 0.262]].map(([x, y]) => [bolt, at(x, y, 0.116)])), MAT.mech2, shin);
+          // ankle gears either side
+          const ag = new THREE.Group(); ag.position.y = L2; ag.rotation.z = Math.PI / 2; shin.add(ag);
+          const agears = [-0.065, 0.065].map((y) => { const g = mesh(gearA, MAT.mech2, ag); g.position.y = y; return g; });
+          const ax = axle(0.034, 0.17, MAT.steel, shin, 14); ax.rotation.z = Math.PI / 2; ax.position.y = L2;
+          // knee piston behind the leg
+          const sleeve = new THREE.Group(); S.add(sleeve); axle(0.022, 0.16, MAT.mech2, sleeve, 12).position.y = 0.08;
+          const rod = new THREE.Group(); S.add(rod); axle(0.011, 0.24, MAT.steel, rod, 10).position.y = 0.12;
+          // boot: heel block, split toe, navy instep plate, sole, three wheels a side
+          const foot = new THREE.Group(); foot.rotation.order = 'YXZ'; S.add(foot);
+          sphere(0.045, MAT.mech2, foot, 18);
+          rbox(0.19, 0.095, 0.14, 0.03, MAT.armor, foot).position.set(0, -0.052, -0.045);
+          for (const x of [-1, 1]) rbox(0.091, 0.08, 0.16, 0.028, MAT.armor, foot).position.set(x * 0.048, -0.06, 0.095);
+          rbox(0.198, 0.014, 0.33, 0.006, MAT.mech, foot).position.set(0, -0.094, 0.03);
+          const ins = badge(instepShape, 0.014, 0.006, MAT.navy, foot); ins.rotation.x = -Math.PI / 2 + 0.14; ins.position.set(0, -0.012, 0.06);
+          const wheels = [], hubs = [];
+          for (const s of [-1, 1]) for (const z of [-0.1, -0.02, 0.06]) {
+            wheels.push([new THREE.CylinderGeometry(0.038, 0.038, 0.03, 18), at(s * 0.108, -0.062, z, 0, 0, Math.PI / 2)]);
+            hubs.push([new THREE.CylinderGeometry(0.016, 0.016, 0.034, 10), at(s * 0.108, -0.062, z, 0, 0, Math.PI / 2)]);
           }
-          return { side, thigh, shin, foot };
+          mesh(merged(wheels), MAT.mech, foot);
+          mesh(merged(hubs), MAT.steel, foot);
+          mesh(merged([[-0.096, -0.04, -0.08], [0.096, -0.04, -0.08]].map(([x, y, z]) => [bolt, at(x, y, z)])), MAT.mech2, foot);
+          return { side, thigh, shin, foot, kgear, agears, sleeve, rod };
         });
       }
 
@@ -483,6 +615,7 @@
         this.flash = Math.max(0, this.flash - dt * 4);
         const strip = c.sleepy ? MAT.glowDim : this.flash > 0.35 ? MAT.glowHot : MAT.glow;
         for (const s of this.strips) s.material = strip;
+        this.drums.forEach((d, i) => { d.rotation.y += dt * (c.sleepy ? 0 : 0.5) * (i ? -1 : 1); });   // side pods keep scanning
       }
 
       poseLegs() {
@@ -510,6 +643,16 @@
           aimBasis(L.shin, K, end, fwd);
           L.foot.position.copy(A);
           L.foot.rotation.set(f.pitch, f.yaw, 0);
+          // gears follow the joints; the knee piston spans hip to calf
+          const up = this._u.subVectors(K, H).normalize(), low = this._v.subVectors(end, K).normalize();
+          const flex = Math.acos(clamp(up.dot(low), -1, 1));
+          L.kgear.rotation.y = flex * 2.4;
+          L.agears.forEach((g, j) => { g.rotation.y = (j ? 1 : -1) * (flex * 1.6 - f.pitch * 2); });
+          this.hipGears[i].rotation.y = Math.atan2(up.dot(fwd), -up.y) * 2 * L.side;
+          const pa = this._pa.copy(H).addScaledVector(fwd, -0.085).addScaledVector(UP, 0.02);
+          const pb = this._pb.copy(K).addScaledVector(low, L2 * 0.42).addScaledVector(fwd, -0.09);
+          aimBasis(L.sleeve, pa, pb, fwd);
+          aimBasis(L.rod, pb, pa, fwd);
         });
       }
 
@@ -536,6 +679,7 @@
         if (S.t <= 0) { S.t = 0.5 + Math.random() * 1.5; S.x = (Math.random() - 0.5) * 0.25; S.y = (Math.random() - 0.5) * 0.2; }
         const ex = spring(this.look.x, lx + S.x, dt, 90, 13), ey = spring(this.look.y, ly + S.y, dt, 90, 13);
         this.eye.rotation.set(-ey * 0.22, ex * 0.32, 0);       // the whole lens barrel turns to look
+        this.eyeRing.rotation.y = ex * 1.2;                     // and its knurled focus ring turns with it
         const hap = spring(this.happy, c.happy ? 1 : 0, dt, 60, 12);
         const wide = spring(this.wide, c.wide ? 1 : 0, dt, 60, 10);
         const open = spring(this.open, c.sleepy ? 0.1 : 1, dt, 40, 10);
@@ -579,6 +723,12 @@
         sphere(0.105, MAT.armor, T, 36);
         const cap = mesh(new THREE.SphereGeometry(0.108, 36, 12, 0, TAU, 0, 0.95), MAT.navy, T); cap.rotation.x = -0.8;
         const seam = mesh(new THREE.TorusGeometry(0.105, 0.005, 6, 48), MAT.mech, T); seam.rotation.y = Math.PI / 2;
+        const band = mesh(new THREE.TorusGeometry(0.104, 0.008, 6, 48), MAT.navy, T); band.rotation.x = Math.PI / 2; band.position.y = -0.035;
+        const noz = axle(0.034, 0.03, MAT.mech2, T, 20); noz.rotation.x = Math.PI / 2; noz.position.z = -0.1;
+        const nozGlow = new THREE.Mesh(new THREE.CircleGeometry(0.02, 18), MAT.glow); nozGlow.rotation.y = Math.PI; nozGlow.position.z = -0.116; T.add(nozGlow);
+        const ant = axle(0.004, 0.07, MAT.steel, T, 6); ant.position.set(0.04, 0.125, -0.03);
+        sphere(0.009, MAT.navy, T, 10).position.set(0.04, 0.16, -0.03);
+        mesh(merged(Array.from({ length: 6 }, (_, i) => [new THREE.SphereGeometry(0.006, 6, 5), at(Math.cos((i / 6) * TAU) * 0.066, Math.sin((i / 6) * TAU) * 0.066, 0.083)])), MAT.mech2, T);
         const eye = new THREE.Group(); eye.position.z = 0.078; T.add(eye);
         const barrel = axle(0.056, 0.05, MAT.mech, eye, 32); barrel.rotation.x = Math.PI / 2; barrel.position.z = 0.012;
         mesh(new THREE.TorusGeometry(0.056, 0.009, 8, 36), MAT.navy, eye).position.z = 0.036;
@@ -915,7 +1065,8 @@
       cam.cx += (pip.x - cam.cx) * kc; cam.cz += (pip.z - cam.cz) * kc;
       const A = cam.heading + cam.az, H = cam.heading, z = cam.zoom;
       camera.position.set(cam.cx + Math.sin(A) * cam.dist * z, 0.2 + (cam.y - 0.2) * z, cam.cz + Math.cos(A) * cam.dist * z);
-      camera.lookAt(_look.set(cam.cx + Math.sin(H) * cam.la, cam.ly, cam.cz + Math.cos(H) * cam.la));
+      const ly = 0.72 + (cam.ly - 0.72) * clamp((z - 0.55) / 0.45, 0, 1);      // aim lower as the camera closes in, so Pip stays clear of the dock
+      camera.lookAt(_look.set(cam.cx + Math.sin(H) * cam.la, ly, cam.cz + Math.cos(H) * cam.la));
       key.position.set(pip.x + 3.2, 6.5, pip.z + 2.6);
       key.target.position.set(pip.x, 0, pip.z);
       shadowFloor.position.x = Math.round(pip.x / 10) * 10; shadowFloor.position.z = Math.round(pip.z / 10) * 10;
