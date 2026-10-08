@@ -1,2 +1,5 @@
 dragons/.capture.html
 dragons/node_modules
+openai-math/node_modules
+openai-math/.soundtrack.wav
+openai-math/*.video.mp4

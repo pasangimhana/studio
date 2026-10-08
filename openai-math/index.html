@@ -1,0 +1,900 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>From 72 to 722</title>
+<meta name="description" content="A math-style hype reel on OpenAI's math milestones, from grade-school word problems in 2021 to 722 research manuscripts in October 2026.">
+<link rel="stylesheet" href="vendor/katex/katex.min.css">
+<script src="vendor/katex/katex.min.js"></script>
+<style>
+/* Fixed 1920x1080 stage, scaled to fit the window. Canvas draws the geometry, the DOM layer holds text and KaTeX. */
+@font-face { font-family: 'InterV'; src: url(vendor/fonts/Inter-latin.woff2) format('woff2'); font-weight: 100 900;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'InterV'; src: url(vendor/fonts/Inter-latin-ext.woff2) format('woff2'); font-weight: 100 900;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'JBM'; src: url(vendor/fonts/JetBrainsMono-latin.woff2) format('woff2'); font-weight: 100 800;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'JBM'; src: url(vendor/fonts/JetBrainsMono-latin-ext.woff2) format('woff2'); font-weight: 100 800;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+:root {
+  --bg: #06070b;
+  --ink: #ece8df;
+  --muted: #8b90a6;
+  --dim: #4a4f63;
+  --blue: #58c4dd;
+  --yellow: #f7d96f;
+  --red: #fc6255;
+  --green: #83c167;
+  --purple: #a38ad6;
+  --teal: #5cd0b3;
+  --gold: #e8b04a;
+  --sans: 'Inter Display', 'InterV', 'Inter', system-ui, sans-serif;
+  --mono: 'JBM', 'JetBrains Mono', 'DejaVu Sans Mono', ui-monospace, monospace;
+  --serif: 'KaTeX_Main', 'Latin Modern Roman', 'Times New Roman', serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; margin: 0; }
+body { background: #000; color: var(--ink); overflow: hidden; }
+#stage {
+  position: absolute; left: 50%; top: 50%; width: 1920px; height: 1080px;
+  transform: translate(-50%, -50%) scale(var(--k, 1)); overflow: hidden; background: var(--bg);
+}
+#cam { position: absolute; inset: 0; }
+#cv { position: absolute; inset: 0; width: 1920px; height: 1080px; display: block; }
+#dom { position: absolute; inset: 0; font-family: var(--sans); }
+#flash { position: absolute; inset: 0; background: #fff8e8; opacity: 0; pointer-events: none; }
+.el { position: absolute; opacity: 0; visibility: hidden; white-space: nowrap; transform-origin: 50% 50%; }
+.el.wrap { white-space: normal; }
+.mono { font-family: var(--mono); letter-spacing: 0.06em; text-transform: uppercase; }
+.serif { font-family: var(--serif); }
+.katex { font-size: 1em; }
+.chapter { font-family: var(--mono); font-size: 22px; color: var(--muted); letter-spacing: 0.14em; text-transform: uppercase; }
+.chapter b { color: var(--yellow); font-weight: 700; }
+.date { font-family: var(--mono); font-size: 26px; font-weight: 700; color: var(--yellow); letter-spacing: 0.16em; }
+.h1 { font-size: 92px; font-weight: 800; letter-spacing: -0.035em; line-height: 1; }
+.h2 { font-size: 64px; font-weight: 750; letter-spacing: -0.03em; line-height: 1.04; }
+.h3 { font-size: 40px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.15; }
+.body { font-size: 30px; font-weight: 450; line-height: 1.35; color: #cfcbd9; }
+.small { font-size: 22px; font-weight: 450; color: var(--muted); }
+.quote { font-family: var(--serif); font-style: italic; font-size: 40px; line-height: 1.3; color: var(--ink); }
+.cite { font-family: var(--mono); font-size: 20px; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; }
+.y { color: var(--yellow); } .b { color: var(--blue); } .r { color: var(--red); } .g { color: var(--green); } .p { color: var(--purple); } .t { color: var(--teal); } .au { color: var(--gold); }
+.claim { font-family: var(--mono); font-size: 18px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); border: 1px solid #343849; border-radius: 999px; padding: 7px 16px 6px; }
+.stamp { font-family: var(--sans); font-weight: 900; font-size: 120px; letter-spacing: 0.04em; color: var(--red); border: 8px solid var(--red); border-radius: 18px; padding: 4px 34px 10px; }
+.card { width: 700px; padding: 26px 30px 28px; border-radius: 18px; background: rgba(9, 10, 16, 0.9); border: 1px solid #23273a; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+.bar { position: relative; height: 34px; border-radius: 6px; background: #151824; overflow: hidden; margin-top: 10px; }
+.bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; }
+.bar span { position: absolute; left: 14px; top: 3px; font-family: var(--mono); font-size: 20px; font-weight: 700; color: #06070b; letter-spacing: 0.04em; }
+.bar span.out { color: var(--ink); }
+.barrow { display: grid; grid-template-columns: 150px 1fr; gap: 16px; align-items: center; font-family: var(--mono); font-size: 20px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+.imo { display: flex; gap: 12px; margin-top: 16px; }
+.imo div { width: 84px; height: 84px; border-radius: 10px; border: 2px solid #343849; display: grid; place-items: center; font-family: var(--mono); font-size: 18px; color: var(--muted); position: relative; }
+.imo div b { font-family: var(--sans); font-size: 36px; font-weight: 800; color: var(--ink); display: block; text-align: center; line-height: 1; }
+.imo div.ok { border-color: var(--gold); background: rgba(232, 176, 74, 0.1); }
+.imo div.ok b { color: var(--gold); }
+.stat b { display: block; font-size: 104px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+.stat span { display: block; margin-top: 10px; font-family: var(--mono); font-size: 22px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.list div { font-size: 34px; font-weight: 600; letter-spacing: -0.01em; padding: 9px 0; display: flex; gap: 18px; align-items: baseline; }
+.list div em { font-style: normal; font-family: var(--mono); font-size: 20px; color: var(--yellow); letter-spacing: 0.08em; }
+.lean { font-family: var(--mono); font-size: 22px; line-height: 1.55; color: #b9bfd6; background: rgba(14, 16, 24, 0.86); border: 1px solid #262a3a; border-radius: 14px; padding: 20px 26px; }
+.lean .k { color: var(--purple); } .lean .c { color: var(--dim); } .lean .ok { color: var(--green); }
+.problem { font-family: var(--serif); font-size: 46px; line-height: 1.45; color: var(--ink); width: 1300px; white-space: normal; }
+.caret { display: inline-block; width: 3px; height: 1.05em; background: var(--yellow); vertical-align: -0.15em; margin-left: 3px; }
+.mega { font-weight: 850; letter-spacing: -0.06em; line-height: 0.8; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div id="stage"><div id="cam"><canvas id="cv" width="1920" height="1080"></canvas><div id="dom"></div></div><div id="flash"></div></div>
+
+<script>
+(() => {
+'use strict';
+const W = 1920, H = 1080, TAU = Math.PI * 2;
+const CAPTURE = location.hash === '#capture';
+
+// Single source of truth for timing; soundtrack.py parses this line, so keep it valid JSON.
+const CUES = {"dur":114,"bpm":120,"type":[0.8,5.0],"write":[6.5,48.5,59.5],"whoosh":[9.0,41.0,51.0,59.0,71.0,93.0],"impact":[[11.5,0.8],[15.0,0.9],[19.0,1.0],[45.5,0.9],[66.0,1.0],[75.0,1.0],[108.0,0.6]],"riser":[[13.0,15.0],[17.0,19.0],[62.0,66.0],[71.0,75.0]],"blip":[20.0,23.5,27.0,30.5,34.0,37.5],"ticks":[52.0,52.25,52.5,52.75,53.0,53.25,53.5,53.75,54.0,54.25],"pops":[75.5,76.0,76.5,77.0,84.0,84.75,85.5,86.25,87.0,87.75],"drums":[[19,41,1],[41,59,1],[59,66,1],[67,71,1],[71,75,3],[75,93,2]],"breakdown":[93,108],"end":108};
+
+/* ---------- math helpers ---------- */
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, x) => a + (b - a) * x;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const eOut = x => 1 - Math.pow(1 - x, 3);
+const eIn = x => x * x * x;
+const eIO = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const eBack = x => { const c = 1.70158, d = c + 1; return 1 + d * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const eExpo = x => x >= 1 ? 1 : 1 - Math.pow(2, -10 * x);
+const hash = x => { const s = Math.sin(x * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+const tex = (s, display = false) => katex.renderToString(s, { throwOnError: false, displayMode: display });
+
+/* ---------- DOM element helpers ---------- */
+const dom = document.getElementById('dom');
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const cam = document.getElementById('cam');
+const flashEl = document.getElementById('flash');
+const all = [];
+// anchor: 'c' centre, 'l' left-middle, 'tl' top-left, 'r' right-middle
+function E(html, x, y, cls = '', anchor = 'c', style = {}) {
+  const d = document.createElement('div');
+  d.className = 'el ' + cls;
+  d.innerHTML = html;
+  d.style.left = x + 'px'; d.style.top = y + 'px';
+  Object.assign(d.style, style);
+  d._a = { c: ['-50%', '-50%'], l: ['0', '-50%'], tl: ['0', '0'], r: ['-100%', '-50%'], t: ['-50%', '0'], bl: ['0', '-100%'] }[anchor];
+  d.style.transformOrigin = { c: '50% 50%', l: '0 50%', tl: '0 0', r: '100% 50%', t: '50% 0', bl: '0 100%' }[anchor];
+  dom.appendChild(d); all.push(d);
+  return d;
+}
+function put(el, o, dx = 0, dy = 0, s = 1, blur = 0) {
+  el._seen = true;
+  el.style.opacity = o.toFixed(4);
+  el.style.visibility = o > 0.002 ? 'visible' : 'hidden';
+  el.style.transform = `translate(${el._a[0]}, ${el._a[1]}) translate(${dx.toFixed(2)}px, ${dy.toFixed(2)}px) scale(${s.toFixed(4)})`;
+  el.style.filter = blur > 0.05 ? `blur(${blur.toFixed(2)}px)` : 'none';
+}
+// standard entrance/exit: rise in with a short blur, fade out
+function show(el, t, a, b, o = {}) {
+  const fi = o.fi ?? 0.5, fo = o.fo ?? 0.35, rise = o.rise ?? 26, s0 = o.s0 ?? 1;
+  if (t < a || t > b) { put(el, 0); return 0; }
+  const pi = eOut(prog(t, a, a + fi)), po = 1 - eIn(prog(t, b - fo, b));
+  put(el, Math.min(pi, po), o.dx || 0, (1 - pi) * rise - (1 - po) * (o.lift ?? 10), lerp(s0, 1, pi), (1 - pi) * (o.blur ?? 8));
+  return Math.min(pi, po);
+}
+// left-to-right reveal like a pen writing
+function reveal(el, p) { el.style.clipPath = p >= 1 ? 'none' : `inset(-40% ${((1 - p) * 100).toFixed(2)}% -40% -4%)`; }
+
+/* ---------- impacts drive shake and flash ---------- */
+function impactEnv(t) {
+  let shake = 0, flash = 0;
+  for (const [ti, k] of CUES.impact) if (t >= ti) { const d = t - ti; shake += k * Math.exp(-d / 0.11); flash = Math.max(flash, k * Math.exp(-d / 0.08)); }
+  return { shake, flash };
+}
+
+/* ---------- background: grid + drifting glyphs + vignette ---------- */
+const GLYPHS = ['∑', '∫', 'π', '∂', '∞', 'ζ', '∇', '√', '≡', '∀', '∃', 'φ', 'λ', 'e', 'i', '≤', '∮', '⊗', 'ℤ', 'ℝ', 'ℂ', 'ℵ', 'Δ', 'θ', 'ε', '∈', '⊂', 'μ', 'Γ', 'ω'];
+function background(t, gridA = 1, glyphA = 1) {
+  ctx.fillStyle = '#06070b'; ctx.fillRect(0, 0, W, H);
+  if (gridA > 0) {
+    const off = (t * 9) % 64;
+    ctx.lineWidth = 1;
+    for (let i = -1; i < W / 64 + 2; i++) {
+      const x = Math.round(i * 64 - off) + 0.5, major = ((i + Math.floor(t * 9 / 64)) % 4 + 4) % 4 === 0;
+      ctx.strokeStyle = `rgba(88,196,221,${(major ? 0.075 : 0.038) * gridA})`;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let j = -1; j < H / 64 + 2; j++) {
+      const y = Math.round(j * 64 + 28) + 0.5, major = (j % 4 + 4) % 4 === 0;
+      ctx.strokeStyle = `rgba(88,196,221,${(major ? 0.075 : 0.038) * gridA})`;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+  }
+  if (glyphA > 0) {
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (let i = 0; i < 46; i++) {
+      const sz = 18 + hash(i * 3.1) * 44, sp = 8 + hash(i * 5.7) * 22;
+      const x = ((hash(i * 1.3) * (W + 200) + t * sp * (hash(i * 9.1) < 0.5 ? 1 : -0.6)) % (W + 200) + W + 200) % (W + 200) - 100;
+      const y = ((hash(i * 2.9) * (H + 200) - t * sp * 0.55) % (H + 200) + H + 200) % (H + 200) - 100;
+      ctx.font = `${sz.toFixed(0)}px KaTeX_Main, serif`;
+      ctx.fillStyle = `rgba(236,232,223,${((0.035 + hash(i * 7.7) * 0.05) * glyphA).toFixed(3)})`;
+      ctx.fillText(GLYPHS[i % GLYPHS.length], x, y);
+    }
+  }
+}
+function vignette() {
+  const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 1.05);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.72)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+}
+function glowLine(pts, color, width, glow = 18, alpha = 1) {
+  if (pts.length < 2) return;
+  ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.globalAlpha = alpha * 0.22; ctx.strokeStyle = color; ctx.lineWidth = width + glow;
+  ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (const p of pts) ctx.lineTo(p[0], p[1]); ctx.stroke();
+  ctx.globalAlpha = alpha; ctx.lineWidth = width;
+  ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (const p of pts) ctx.lineTo(p[0], p[1]); ctx.stroke();
+  ctx.restore();
+}
+function dot(x, y, r, color, glow = 3) {
+  ctx.save();
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r * glow);
+  g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.globalAlpha *= 0.45; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * glow, 0, TAU); ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+}
+function cumLen(pts) { const L = [0]; for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); return L; }
+function sliceTo(pts, L, len) {
+  const out = [pts[0]];
+  for (let i = 1; i < pts.length; i++) {
+    if (L[i] >= len) { const f = (len - L[i - 1]) / ((L[i] - L[i - 1]) || 1); out.push([lerp(pts[i - 1][0], pts[i][0], f), lerp(pts[i - 1][1], pts[i][1], f)]); return out; }
+    out.push(pts[i]);
+  }
+  return out;
+}
+
+/* =====================================================================
+   SCENE 0 · 0–9s · the 2021 word problem
+   ===================================================================== */
+const PROBLEM = 'Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May?';
+const s0 = {
+  chap: E('<b>§0</b> &nbsp;2021 · GSM8K · grade-school math', 120, 110, 'chapter', 'tl'),
+  prob: E('<span class="txt"></span><span class="caret"></span>', 310, 380, 'problem', 'tl'),
+  cap: E('In 2021, problems like this were <span class="y">hard for AI.</span>', 310, 720, 'h3', 'tl'),
+  eq: E(tex('48 + \\tfrac{48}{2} = \\mathbf{72}'), 310, 830, '', 'tl', { fontSize: '64px', color: 'var(--ink)' }),
+};
+function scene0(t) {
+  show(s0.chap, t, 0.4, 8.8);
+  const n = Math.floor(PROBLEM.length * clamp(prog(t, CUES.type[0], CUES.type[1])));
+  s0.prob.querySelector('.txt').textContent = PROBLEM.slice(0, n);
+  s0.prob.querySelector('.caret').style.opacity = (n < PROBLEM.length || Math.floor(t * 2.5) % 2 === 0) ? 1 : 0;
+  show(s0.prob, t, 0.6, 9.0, { rise: 0, blur: 0, fo: 0.5 });
+  show(s0.cap, t, 5.4, 9.0, { fo: 0.5 });
+  const e = show(s0.eq, t, CUES.write[0], 9.0, { rise: 0, blur: 0, fi: 0.01, fo: 0.4 });
+  if (e > 0) reveal(s0.eq, eIO(prog(t, CUES.write[0], CUES.write[0] + 1.3)));
+  // a little margin bracket, like a teacher's mark
+  if (t > 6.6 && t < 9) {
+    const p = eOut(prog(t, 7.6, 8.2)), a = 1 - prog(t, 8.6, 9.0);
+    ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = '#f7d96f'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.ellipse(640, 868, 64 * p + 1, 48 * p + 1, -0.08, -1.2, -1.2 + TAU * p); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+/* =====================================================================
+   SCENE 1 · 9–15s · 72 → 722
+   ===================================================================== */
+const s1 = {
+  num: E('<span class="n7">72</span><span class="n2">2</span>', 960, 470, 'mega', 'c', { fontSize: '420px' }),
+  later: E('Five years later.', 960, 760, 'quote', 'c'),
+  what: E('research manuscripts, written by an AI model', 960, 760, 'h3', 'c'),
+  when: E('released october 6, 2026', 960, 836, 'date', 'c'),
+};
+const n7 = s1.num.querySelector('.n7'), n2 = s1.num.querySelector('.n2');
+n2.style.display = 'inline-block';
+function scene1(t) {
+  if (t < 9 || t > 15) { put(s1.num, 0); put(s1.later, 0); put(s1.what, 0); put(s1.when, 0); return; }
+  const pi = eOut(prog(t, 9.0, 9.9)), po = 1 - eIn(prog(t, 14.5, 15));
+  const hit = t >= CUES.impact[0][0];
+  // before the hit, "72" sits centred (shift right by half a digit so 722 lands centred)
+  const shift = n2.offsetWidth / 2 * (1 - eExpo(prog(t, 11.5, 11.66)));
+  const punch = hit ? 1 + 0.12 * Math.exp(-(t - 11.5) / 0.12) : 1;
+  put(s1.num, Math.min(pi, po), shift, (1 - pi) * 40, lerp(0.55, 1, pi) * punch, (1 - pi) * 14);
+  n7.style.color = hit ? 'var(--yellow)' : 'var(--ink)';
+  if (hit) {
+    const d = eExpo(prog(t, 11.5, 11.62));
+    n2.style.opacity = 1; n2.style.transform = `translateY(${((1 - d) * -500).toFixed(1)}px)`; n2.style.color = 'var(--yellow)';
+  } else { n2.style.opacity = 0; n2.style.transform = 'translateY(-500px)'; }
+  show(s1.later, t, 10.0, 11.45, { fo: 0.15 });
+  show(s1.what, t, 11.8, 15.0);
+  show(s1.when, t, 12.5, 15.0);
+  // radial burst lines at the hit
+  if (hit && t < 13) {
+    const d = t - 11.5, a = Math.exp(-d / 0.35);
+    ctx.save(); ctx.strokeStyle = `rgba(247,217,111,${(0.5 * a).toFixed(3)})`; ctx.lineWidth = 2;
+    for (let i = 0; i < 48; i++) {
+      const ang = i / 48 * TAU + hash(i) * 0.1, r0 = 280 + d * 900, r1 = r0 + 60 + hash(i * 3) * 160;
+      ctx.beginPath(); ctx.moveTo(960 + Math.cos(ang) * r0, 470 + Math.sin(ang) * r0 * 0.7); ctx.lineTo(960 + Math.cos(ang) * r1, 470 + Math.sin(ang) * r1 * 0.7); ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+/* =====================================================================
+   SCENE 2 · 15–19s · title
+   ===================================================================== */
+const s2 = {
+  kicker: E('a short history of machines doing mathematics', 960, 330, 'chapter', 'c'),
+  title: E('FROM <span class="y">72</span> TO <span class="y">722</span>', 960, 470, 'h1', 'c', { fontSize: '150px' }),
+  sub: E('2021 &nbsp;→&nbsp; october 2026', 960, 610, 'date', 'c', { color: 'var(--muted)', fontWeight: 400 }),
+};
+function scene2(t) {
+  show(s2.kicker, t, 15.2, 18.9);
+  show(s2.title, t, 15.0, 18.9, { s0: 1.25, blur: 20, rise: 0, fi: 0.35 });
+  show(s2.sub, t, 15.6, 18.9);
+  if (t < 15 || t > 19) return;
+  // a rose curve r = cos(k θ) drawing itself behind the title
+  const a = Math.min(eOut(prog(t, 15, 15.6)), 1 - prog(t, 18.6, 19));
+  const k = 7 / 4, turns = 4, p = eIO(prog(t, 15.0, 18.4));
+  const pts = [];
+  for (let i = 0; i <= 1400 * p; i++) {
+    const th = i / 1400 * TAU * turns, r = 420 * Math.cos(k * th);
+    pts.push([960 + r * Math.cos(th + t * 0.15), 470 + r * Math.sin(th + t * 0.15)]);
+  }
+  glowLine(pts, '#58c4dd', 1.6, 10, a * 0.55);
+}
+
+/* =====================================================================
+   CHART · used by the climb (19–41s) and the reflection (93–108s)
+   ===================================================================== */
+const CX0 = 290, CX1 = 1740, CY0 = 930;
+const cxOf = yr => CX0 + (yr - 2021) / 5.9 * (CX1 - CX0);
+const cyOf = lv => CY0 - lv * 135;
+// the climb is drawn as one smooth exponential; milestones sit on it (the vertical axis is qualitative)
+const climb = yr => 0.25 + 0.225 * Math.exp(0.552 * (yr - 2021));
+const MS = [
+  { id: 'gsm',   yr: 2021.8,  tag: 'GSM8K' },
+  { id: 'gpt4',  yr: 2023.2,  tag: 'GPT-4' },
+  { id: 'o1',    yr: 2024.7,  tag: 'o1' },
+  { id: 'o3',    yr: 2024.97, tag: 'o3' },
+  { id: 'imo',   yr: 2025.55, tag: 'IMO gold' },
+  { id: 'erdos', yr: 2026.03, tag: 'Erdős #728' },
+  { id: 'unit',  yr: 2026.38, tag: 'unit distance' },
+  { id: 'astra', yr: 2026.58, tag: 'Astra × 10' },
+  { id: 'ns',    yr: 2026.69, tag: 'Navier–Stokes' },
+  { id: 'drop',  yr: 2026.77, tag: '722 papers' },
+].map(m => ({ ...m, x: cxOf(m.yr), y: cyOf(climb(m.yr)) }));
+const CURVE = [];
+for (let yr = 2021; yr <= 2026.87; yr += 0.01) CURVE.push([cxOf(yr), cyOf(climb(yr))]);
+const CURVE_L = cumLen(CURVE);
+const msLen = MS.map(m => { let best = 0, bd = 1e9; CURVE.forEach((p, i) => { const d = Math.hypot(p[0] - m.x, p[1] - m.y); if (d < bd) { bd = d; best = i; } }); return CURVE_L[best]; });
+const TIERS = [[0.6, 'word problems'], [1.95, 'competitions'], [3.0, 'olympiad proofs'], [3.9, 'open problems'], [5.45, 'millennium problems']];
+// upto: how far along the milestones the curve has been drawn (fractional index); visible: number of milestones shown
+// k rescales strokes, dots and labels so they keep their on-screen size under a zoom
+function drawChart(t, upto, alpha, axisP = 1, labelsUpTo = -1, hiIdx = -1, k = 1) {
+  ctx.save(); ctx.globalAlpha = alpha;
+  // axes
+  ctx.strokeStyle = 'rgba(236,232,223,0.55)'; ctx.lineWidth = 2 * k;
+  ctx.beginPath(); ctx.moveTo(CX0, CY0); ctx.lineTo(lerp(CX0, CX1 + 40, eOut(axisP)), CY0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(CX0, CY0); ctx.lineTo(CX0, lerp(CY0, 120, eOut(axisP))); ctx.stroke();
+  ctx.font = `600 ${20 * k}px JBM, monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let y = 2021; y <= 2026; y++) {
+    const x = cxOf(y), a = clamp(axisP * 7 - (y - 2021));
+    ctx.globalAlpha = alpha * a; ctx.fillStyle = '#8b90a6'; ctx.fillText(String(y), x, CY0 + 16 * k);
+    ctx.fillRect(x - k, CY0 - 6 * k, 2 * k, 12 * k);
+  }
+  // tiers
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.font = `500 ${15 * k}px JBM, monospace`;
+  TIERS.forEach(([lv, name], i) => {
+    const a = clamp(axisP * 6 - i * 0.6); if (a <= 0) return;
+    const y = cyOf(lv);
+    ctx.globalAlpha = alpha * a * 0.9;
+    ctx.setLineDash([4 * k, 10 * k]); ctx.strokeStyle = 'rgba(139,144,166,0.35)'; ctx.lineWidth = k;
+    ctx.beginPath(); ctx.moveTo(CX0, y + 0.5); ctx.lineTo(CX1 + 40, y + 0.5); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = i === 4 ? '#fc6255' : '#8b90a6';
+    ctx.fillText(name.toUpperCase(), CX0 - 14 * k, y);
+  });
+  ctx.globalAlpha = alpha;
+  // curve
+  if (upto > 0) {
+    const i0 = Math.floor(upto), f = upto - i0;
+    const len = i0 >= MS.length ? CURVE_L[CURVE_L.length - 1] * Math.min(1, 0.985 + f * 0.015) : lerp(i0 === 0 ? 0 : msLen[i0 - 1], msLen[i0], eIO(f));
+    const pts = sliceTo(CURVE, CURVE_L, len);
+    const grad = ctx.createLinearGradient(CX0, CY0, CX1, 140);
+    grad.addColorStop(0, '#58c4dd'); grad.addColorStop(0.6, '#83c167'); grad.addColorStop(1, '#f7d96f');
+    glowLine(pts, grad, 4 * k, 22 * k, alpha);
+    const tip = pts[pts.length - 1];
+    dot(tip[0], tip[1], 5 * k, '#ffffff', 4);
+  }
+  // milestone dots
+  MS.forEach((m, i) => {
+    const appear = clamp((upto - i) * 3);
+    if (appear <= 0) return;
+    const hot = i === hiIdx;
+    ctx.globalAlpha = alpha * appear;
+    dot(m.x, m.y, (hot ? 9 : 7) * k, hot ? '#f7d96f' : '#ece8df', hot ? 4 : 2.5);
+    if (hot) { const pr = (t * 1.2) % 1; ctx.strokeStyle = `rgba(247,217,111,${(1 - pr) * 0.8})`; ctx.lineWidth = 2 * k; ctx.beginPath(); ctx.arc(m.x, m.y, (10 + pr * 36) * k, 0, TAU); ctx.stroke(); }
+    if (i <= labelsUpTo) {
+      ctx.font = `600 ${17 * k}px JBM, monospace`; ctx.textBaseline = 'middle';
+      ctx.fillStyle = hot ? '#f7d96f' : '#aeb2c4';
+      const right = i < 6;
+      ctx.textAlign = right ? 'left' : 'right';
+      ctx.fillText(m.tag.toUpperCase(), m.x + (right ? 18 : -18) * k, m.y + (right ? 18 : 0) * k);
+    }
+  });
+  ctx.restore();
+}
+
+/* =====================================================================
+   SCENE 3 · 19–41s · the climb
+   ===================================================================== */
+const CARD_X = 340, CARD_Y = 150;
+const pctBar = (label, pct, color, txt) => `<div class="barrow"><span>${label}</span><div class="bar"><i style="width:${pct}%;background:${color}"></i><span class="${pct < 12 ? 'out' : ''}" style="${pct < 12 ? `left:calc(${pct}% + 12px)` : ''}">${txt}</span></div></div>`;
+const cards = [
+  `<div class="date">2021</div><div class="h2" style="margin-top:14px">GSM8K</div>
+   <div class="body" style="margin-top:14px;white-space:normal">8,500 grade-school word problems from OpenAI.<br>A genuine challenge for GPT-3.</div>`,
+  `<div class="date">MAR 2023</div><div class="h2" style="margin-top:14px">GPT-4</div>
+   <div style="margin-top:20px">${pctBar('GSM8K', 92, 'var(--blue)', '92%')}${pctBar('AMC 12', 40, 'var(--muted)', '60 / 150')}</div>`,
+  `<div class="date">SEP 2024</div><div class="h2" style="margin-top:14px">o1 learns to <span class="y">reason</span></div>
+   <div style="margin-top:20px">${pctBar('GPT-4o', 12, 'var(--muted)', '12%')}${pctBar('o1', 83, 'var(--yellow)', '83%')}</div>
+   <div class="small" style="margin-top:12px">AIME 2024 · o1 shown with consensus of 64 samples</div>`,
+  `<div class="date">DEC 2024</div><div class="h2" style="margin-top:14px">o3 · FrontierMath</div>
+   <div style="margin-top:20px">${pctBar('before', 2, 'var(--muted)', 'under 2%')}${pctBar('o3', 25, 'var(--green)', '25%')}</div>
+   <div class="small" style="margin-top:12px">research-level problems written by working mathematicians</div>`,
+  `<div class="date">JUL 2025</div><div class="h2" style="margin-top:14px">IMO <span class="au">gold</span>-level</div>
+   <div class="imo">${[7, 7, 7, 7, 7, 0].map((s, i) => `<div class="${s ? 'ok' : ''}"><span><b>${s}</b>P${i + 1}</span></div>`).join('')}</div>
+   <div class="small" style="margin-top:14px">35 / 42 · proofs in natural language · two 4.5-hour exams, no tools</div>`,
+  `<div class="date">JAN 2026</div><div class="h2" style="margin-top:14px">Erdős problems <span class="r">fall</span></div>
+   <div class="body" style="margin-top:14px;white-space:normal">GPT-5.2 Pro proves Erdős problem #728 “more or less autonomously.”</div>
+   <div class="cite" style="margin-top:12px">— Terence Tao</div>`,
+];
+const s3 = {
+  chap: E('<b>§1</b> &nbsp;the climb · 2021 → 2026', 120, 70, 'chapter', 'tl'),
+  cards: cards.map(html => E(html, CARD_X, CARD_Y, 'card wrap', 'tl')),
+};
+function scene3(t) {
+  show(s3.chap, t, 19.2, 40.8);
+  const B = CUES.blip;
+  s3.cards.forEach((c, i) => {
+    const a = B[i], b = (B[i + 1] ?? 41.0) - 0.05;
+    const o = show(c, t, a, b, { rise: 40, fo: 0.3 });
+    // grow the bars
+    if (o > 0) c.querySelectorAll('.bar i').forEach((bar, k) => { bar.style.transform = `scaleX(${eOut(prog(t, a + 0.25 + k * 0.25, a + 1.0 + k * 0.25)).toFixed(3)})`; bar.style.transformOrigin = '0 0'; });
+    if (o > 0) c.querySelectorAll('.imo div').forEach((box, k) => { const p = prog(t, a + 0.3 + k * 0.18, a + 0.5 + k * 0.18); box.style.opacity = (0.15 + 0.85 * p).toFixed(3); box.style.transform = `scale(${lerp(0.7, 1, eBack(p)).toFixed(3)})`; });
+  });
+  if (t < 19 || t > 41) return;
+  const out = 1 - eIn(prog(t, 40.4, 41));
+  const axisP = prog(t, 19.0, 20.0);
+  let upto = 0;
+  B.forEach((b, i) => { if (t >= b) upto = i + Math.min(1, (t - b) / 0.9); });
+  let cur = -1; B.forEach((b, i) => { if (t >= b) cur = i; });
+  drawChart(t, upto, out, axisP, cur, cur);
+  // connector from card to the current point
+  if (cur >= 0) {
+    const m = MS[cur], p = eOut(prog(t, B[cur] + 0.2, B[cur] + 0.8)), o = 1 - eIn(prog(t, (B[cur + 1] ?? 41) - 0.35, (B[cur + 1] ?? 41)));
+    const sx = clamp(m.x, CARD_X + 40, CARD_X + s3.cards[cur].offsetWidth - 40), sy = CARD_Y + s3.cards[cur].offsetHeight + 4;
+    ctx.save(); ctx.globalAlpha = out * Math.min(p, o) * 0.8; ctx.strokeStyle = '#f7d96f'; ctx.lineWidth = 1.5; ctx.setLineDash([3, 7]);
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(lerp(sx, m.x, p), lerp(sy, m.y - 14, p)); ctx.stroke(); ctx.restore();
+  }
+}
+
+/* =====================================================================
+   SCENE 4 · 41–51s · the unit distance conjecture
+   ===================================================================== */
+// A: Erdős's grid. Points of Z^2, edges where |p-q|^2 = 25 (12 directions).
+const GRID = [], GRID_E = [];
+for (let i = -7; i <= 7; i++) for (let j = -7; j <= 7; j++) if (i * i + j * j <= 52) GRID.push([i, j]);
+for (let a = 0; a < GRID.length; a++) for (let b = a + 1; b < GRID.length; b++) { const dx = GRID[a][0] - GRID[b][0], dy = GRID[a][1] - GRID[b][1]; if (dx * dx + dy * dy === 25) GRID_E.push([a, b]); }
+// B: an algebraic-integer lattice (Z[ζ5], rank 4) projected to the plane; unit edges along the 10 roots ±ζ^k.
+const Z5 = [0, 1, 2, 3, 4].map(k => [Math.cos(TAU * k / 5), Math.sin(TAU * k / 5)]);
+const CYC = [], CYC_E = [], cycKey = new Map();
+for (let a = -1; a <= 2; a++) for (let b = -1; b <= 2; b++) for (let c = -1; c <= 2; c++) for (let d = -1; d <= 2; d++) {
+  const x = a * Z5[0][0] + b * Z5[1][0] + c * Z5[2][0] + d * Z5[3][0], y = a * Z5[0][1] + b * Z5[1][1] + c * Z5[2][1] + d * Z5[3][1];
+  if (Math.hypot(x, y) > 2.55) continue;
+  const key = x.toFixed(4) + ',' + y.toFixed(4); if (cycKey.has(key)) continue;
+  cycKey.set(key, CYC.length); CYC.push([x, y]);
+}
+for (let a = 0; a < CYC.length; a++) for (let b = a + 1; b < CYC.length; b++) if (Math.abs(Math.hypot(CYC[a][0] - CYC[b][0], CYC[a][1] - CYC[b][1]) - 1) < 1e-6) CYC_E.push([a, b]);
+const s4 = {
+  chap: E('<b>§2</b> &nbsp;may 20, 2026', 120, 70, 'chapter', 'tl'),
+  title: E('Erdős’s unit distance problem', 120, 170, 'h2', 'tl'),
+  sub: E('posed 1946 · open for 80 years', 120, 252, 'date', 'tl', { color: 'var(--muted)', fontWeight: 400, fontSize: '22px' }),
+  q: E('How many pairs among <i>n</i> points in the plane<br>can sit exactly <span class="y">one unit</span> apart?', 120, 330, 'body wrap', 'tl', { width: '700px' }),
+  conj: E('<div class="small" style="margin-bottom:8px">Erdős’s conjecture: the grid is essentially optimal</div>' + tex('u(n) \\le n^{\\,1 + O(1/\\log\\log n)}'), 120, 520, '', 'tl', { fontSize: '44px' }),
+  stamp: E('DISPROVED', 1290, 540, 'stamp', 'c'),
+  newb: E('<div class="small" style="margin-bottom:8px">An internal OpenAI reasoning model found a new family:</div>' + tex('u(n) \\ge n^{\\,1+c}\\quad (c > 0)'), 120, 520, '', 'tl', { fontSize: '44px' }),
+  how: E('built from algebraic integers, projected<br>down from a higher-dimensional lattice', 120, 680, 'body wrap', 'tl', { width: '700px', color: 'var(--muted)', fontSize: '26px' }),
+  quote: E('“There is no doubt that the solution to the unit-distance<br>problem is a milestone in AI mathematics.”<div class="cite" style="margin-top:14px;font-style:normal">— Tim Gowers, Fields Medal 1998</div>', 120, 830, 'quote', 'tl', { fontSize: '32px' }),
+  legend: E('schematic', 1290, 990, 'claim', 'c'),
+};
+function scene4(t) {
+  show(s4.chap, t, 41.2, 50.7);
+  show(s4.title, t, 41.0, 50.7);
+  show(s4.sub, t, 41.3, 50.7);
+  show(s4.q, t, 41.8, 47.0);
+  show(s4.conj, t, 42.6, 45.5, { fo: 0.25 });
+  show(s4.newb, t, 46.4, 50.7);
+  show(s4.how, t, 47.0, 50.7);
+  show(s4.quote, t, CUES.write[1], 50.7);
+  show(s4.legend, t, 42.0, 50.7);
+  // the stamp slams then fades
+  if (t >= 45.5 && t < 47.6) {
+    const p = eExpo(prog(t, 45.5, 45.62)), o = 1 - prog(t, 47.0, 47.6);
+    put(s4.stamp, Math.min(p, o), 0, 0, lerp(2.4, 1, p), 0);
+    s4.stamp.style.transform += ' rotate(-8deg)';
+  } else put(s4.stamp, 0);
+  if (t < 41 || t > 51) return;
+  const out = 1 - eIn(prog(t, 50.5, 51));
+  const cx = 1290, cy = 540;
+  // phase A: square grid
+  const aIn = eOut(prog(t, 41.4, 43.0)), aEdge = eIO(prog(t, 42.4, 44.6)), aOut = eIn(prog(t, 45.5, 46.3));
+  if (aOut < 1) {
+    const s = 33, rot = 0.04 * Math.sin(t * 0.6);
+    const P = GRID.map(([i, j], k) => { const r = lerp(1.6, 1, aIn) * (1 - aOut * 0.9); const x = i * s * r, y = j * s * r; return [cx + x * Math.cos(rot) - y * Math.sin(rot), cy + x * Math.sin(rot) + y * Math.cos(rot)]; });
+    ctx.save(); ctx.globalAlpha = out * (1 - aOut);
+    ctx.strokeStyle = 'rgba(88,196,221,0.32)'; ctx.lineWidth = 1.2;
+    const ne = Math.floor(GRID_E.length * aEdge);
+    ctx.beginPath(); for (let e = 0; e < ne; e++) { const [a, b] = GRID_E[e]; ctx.moveTo(P[a][0], P[a][1]); ctx.lineTo(P[b][0], P[b][1]); } ctx.stroke();
+    P.forEach((p, k) => { ctx.globalAlpha = out * (1 - aOut) * clamp(aIn * 2 - hash(k) * 0.8); dot(p[0], p[1], 3.2, '#ece8df', 2); });
+    ctx.restore();
+  }
+  // phase B: cyclotomic quasi-lattice blooming out
+  if (t >= 45.5) {
+    const bIn = eOut(prog(t, 45.6, 47.0)), bEdge = eIO(prog(t, 45.9, 47.6));
+    const s = 168 * lerp(0.2, 1, bIn), rot = (t - 45.5) * 0.12;
+    const P = CYC.map(([x, y]) => [cx + (x * Math.cos(rot) - y * Math.sin(rot)) * s, cy + (x * Math.sin(rot) + y * Math.cos(rot)) * s]);
+    ctx.save(); ctx.globalAlpha = out;
+    const ne = Math.floor(CYC_E.length * bEdge);
+    ctx.lineWidth = 1.3;
+    for (let e = 0; e < ne; e++) {
+      const [a, b] = CYC_E[e];
+      const dir = Math.round((Math.atan2(CYC[b][1] - CYC[a][1], CYC[b][0] - CYC[a][0]) / TAU * 10 + 10)) % 5;
+      ctx.strokeStyle = ['rgba(247,217,111,0.5)', 'rgba(88,196,221,0.5)', 'rgba(131,193,103,0.5)', 'rgba(163,138,214,0.55)', 'rgba(252,98,85,0.5)'][dir];
+      ctx.beginPath(); ctx.moveTo(P[a][0], P[a][1]); ctx.lineTo(P[b][0], P[b][1]); ctx.stroke();
+    }
+    P.forEach((p, k) => { ctx.globalAlpha = out * clamp(bIn * 2 - hash(k + 9) * 0.8); dot(p[0], p[1], 3, '#ffffff', 2.4); });
+    ctx.restore();
+  }
+}
+
+/* =====================================================================
+   SCENE 5 · 51–59s · Astra: ten open problems
+   ===================================================================== */
+const s5 = {
+  chap: E('<b>§3</b> &nbsp;august 2026', 120, 70, 'chapter', 'tl'),
+  title: E('Ten open problems. <span class="y">One model.</span>', 120, 170, 'h2', 'tl'),
+  sub: E('an internal version of Astra · each problem open for a decade or more', 120, 252, 'date', 'tl', { color: 'var(--muted)', fontWeight: 400, fontSize: '22px' }),
+  list: E(['an explicit <span class="y">non-sofic group</span>', 'Connes’s rigidity conjecture <span class="r">— disproved</span>', 'Ehrhart’s volume conjecture <span class="g">— proved</span>', 'three Erdős problems', 'sphere packing, codes, complexity…'].map(s => `<div><em>✓</em>${s}</div>`).join(''), 120, 580, 'list', 'tl'),
+  lean: E(`<div><span class="k">theorem</span> result_01 … result_10</div><div><span class="k">  :=</span> <span class="k">by</span> <span class="c">-- 249-page manuscript</span></div><div class="ok">✓ Lean 4 certificate for every result</div>`, 1010, 600, 'lean', 'tl'),
+  cost: E('<span class="y">≈ $2,000</span> of compute for all ten', 1010, 790, 'h3', 'tl', { fontSize: '34px' }),
+};
+const s5rows = [...s5.list.children];
+function scene5(t) {
+  show(s5.chap, t, 51.2, 58.7);
+  show(s5.title, t, 51.0, 58.7);
+  show(s5.sub, t, 51.4, 58.7);
+  show(s5.list, t, 54.3, 58.7, { rise: 0, blur: 0 });
+  s5rows.forEach((r, i) => { const p = eOut(prog(t, 54.5 + i * 0.45, 55.0 + i * 0.45)); r.style.opacity = p.toFixed(3); r.style.transform = `translateX(${((1 - p) * -30).toFixed(1)}px)`; });
+  show(s5.lean, t, 56.2, 58.7);
+  show(s5.cost, t, 56.8, 58.7);
+  if (t < 51 || t > 59) return;
+  const out = 1 - eIn(prog(t, 58.5, 59));
+  // ten proof boxes ticking off on the beat
+  ctx.save(); ctx.globalAlpha = out;
+  for (let i = 0; i < 10; i++) {
+    const x = 120 + i * 172, y = 370, tk = CUES.ticks[i], p = eOut(prog(t, 51.3 + i * 0.06, 51.8 + i * 0.06)), done = t >= tk;
+    ctx.globalAlpha = out * p;
+    ctx.strokeStyle = done ? '#83c167' : 'rgba(139,144,166,0.5)'; ctx.lineWidth = 2;
+    ctx.fillStyle = done ? 'rgba(131,193,103,0.12)' : 'rgba(20,22,32,0.6)';
+    ctx.beginPath(); ctx.roundRect(x, y, 150, 150, 14); ctx.fill(); ctx.stroke();
+    ctx.font = '600 18px JBM, monospace'; ctx.fillStyle = '#8b90a6'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(String(i + 1).padStart(2, '0'), x + 14, y + 12);
+    if (done) {
+      const q = eOut(prog(t, tk, tk + 0.18));
+      ctx.strokeStyle = '#83c167'; ctx.lineWidth = 7; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      const pts = [[x + 44, y + 80], [x + 68, y + 104], [x + 112, y + 54]];
+      const L1 = Math.hypot(24, 24), L2 = Math.hypot(44, 50), Lt = (L1 + L2) * q;
+      ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+      if (Lt <= L1) ctx.lineTo(lerp(pts[0][0], pts[1][0], Lt / L1), lerp(pts[0][1], pts[1][1], Lt / L1));
+      else { ctx.lineTo(pts[1][0], pts[1][1]); const f = (Lt - L1) / L2; ctx.lineTo(lerp(pts[1][0], pts[2][0], f), lerp(pts[1][1], pts[2][1], f)); }
+      ctx.stroke();
+      const g = Math.exp(-(t - tk) / 0.2); if (g > 0.01) { ctx.globalAlpha = out * g * 0.5; ctx.fillStyle = '#83c167'; ctx.beginPath(); ctx.roundRect(x - 4, y - 4, 158, 158, 16); ctx.fill(); }
+    }
+  }
+  ctx.restore();
+  // a rotating lattice polytope (Ehrhart counts its lattice points)
+  const pa = Math.min(eOut(prog(t, 54.0, 55.0)), out);
+  if (pa > 0) {
+    const V = [[2, 0, 0], [-2, 0, 0], [0, 2, 0], [0, -2, 0], [0, 0, 2], [0, 0, -2]];
+    const Ed = [[0, 2], [0, 3], [0, 4], [0, 5], [1, 2], [1, 3], [1, 4], [1, 5], [2, 4], [2, 5], [3, 4], [3, 5]];
+    const a1 = t * 0.5, a2 = 0.5 + t * 0.23, S = 62, ox = 1660, oy = 930;
+    const pr = ([x, y, z]) => { let X = x * Math.cos(a1) - z * Math.sin(a1), Z = x * Math.sin(a1) + z * Math.cos(a1); let Y = y * Math.cos(a2) - Z * Math.sin(a2); Z = y * Math.sin(a2) + Z * Math.cos(a2); const k = 1 / (1 + Z * 0.08); return [ox + X * S * k, oy + Y * S * k, Z]; };
+    ctx.save(); ctx.globalAlpha = pa * 0.9; ctx.strokeStyle = '#58c4dd'; ctx.lineWidth = 2;
+    ctx.beginPath(); for (const [a, b] of Ed) { const A = pr(V[a]), B2 = pr(V[b]); ctx.moveTo(A[0], A[1]); ctx.lineTo(B2[0], B2[1]); } ctx.stroke();
+    for (let x = -2; x <= 2; x++) for (let y = -2; y <= 2; y++) for (let z = -2; z <= 2; z++) if (Math.abs(x) + Math.abs(y) + Math.abs(z) <= 2) { const P = pr([x, y, z]); ctx.globalAlpha = pa * (0.55 + 0.45 * clamp(1 - P[2] / 3)); dot(P[0], P[1], 4, '#f7d96f', 2.2); }
+    ctx.restore();
+  }
+}
+
+/* =====================================================================
+   SCENE 6 · 59–71s · Navier–Stokes
+   ===================================================================== */
+const TB = 66.0; // blow-up time on the clock
+const s6 = {
+  chap: E('<b>§4</b> &nbsp;september 8, 2026', 120, 70, 'chapter', 'tl'),
+  title: E('Navier–Stokes', 120, 170, 'h2', 'tl', { fontSize: '84px' }),
+  sub: E('one of the seven millennium prize problems', 120, 268, 'date', 'tl', { color: 'var(--red)', fontWeight: 700, fontSize: '22px' }),
+  eq: E(tex('\\partial_t u + (u\\cdot\\nabla)u = -\\nabla p + \\nu\\,\\Delta u + f,\\qquad \\nabla\\cdot u = 0', true), 120, 360, '', 'tl', { fontSize: '40px' }),
+  q: E('Can a smooth 3D flow develop a<br><span class="r">singularity</span> in finite time?', 120, 520, 'h3 wrap', 'tl', { fontSize: '42px' }),
+  ans: E('<span class="y">Yes</span> — with a smooth force,<br>it can blow up in finite time.', 120, 520, 'h2 wrap', 'tl', { fontSize: '54px' }),
+  facts: E('<div class="lean" style="display:inline-block"><span class="ok">✓</span> proof formalized in Lean<br><span class="k">≈</span> 10,000 agents in parallel · 88 hours</div>', 120, 690, '', 'tl'),
+  claim: E('as announced by OpenAI · expert review is ongoing', 120, 900, 'claim', 'tl'),
+  inf: E(tex('\\|u\\|_{\\infty} \\to \\infty'), 1400, 470, '', 'c', { fontSize: '64px', color: '#fff6e0', textShadow: '0 0 24px rgba(252,98,85,0.9)' }),
+};
+function vortex(t) {
+  // deterministic swirling particles; the core tightens and spins faster as t → TB, then bursts
+  const cx = 1400, cy = 470;
+  const p = clamp((t - 59.5) / (TB - 59.5));
+  const crunch = -Math.log(1 - Math.min(p, 0.993));
+  const after = Math.max(0, t - TB);
+  const A = Math.min(eOut(prog(t, 59.2, 60.4)), 1 - eIn(prog(t, 70.5, 71)));
+  ctx.save(); ctx.lineCap = 'round';
+  for (let i = 0; i < 900; i++) {
+    const r0 = 26 + Math.pow(hash(i * 1.7), 0.7) * 360, th0 = hash(i * 4.3) * TAU, z = hash(i * 8.9);
+    const inner = clamp(1.25 - r0 / 360);
+    const r = r0 * lerp(1, Math.exp(-crunch * 0.62), inner) * (1 + after * 5 * (0.3 + z) * inner);
+    const w = (1 + 2.2 * crunch) * Math.pow(60 / (r + 25), 1.2);
+    const th = th0 + (t - 59.5) * 1.8 * Math.pow(60 / (r0 + 25), 1.1) + crunch * crunch * 0.5 * inner;
+    const sp = clamp(w * 0.2);
+    const c = sp < 0.5 ? [lerp(88, 247, sp * 2), lerp(196, 217, sp * 2), lerp(221, 111, sp * 2)] : [lerp(247, 255, sp * 2 - 1), lerp(217, 246, sp * 2 - 1), lerp(111, 232, sp * 2 - 1)];
+    const len = clamp(w * 0.08, 0.03, 1.1) * (after > 0 ? 0.35 : 1);
+    const a = A * (0.3 + 0.6 * z) * (after > 0 ? Math.exp(-after * 0.9) : 1);
+    ctx.strokeStyle = `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a.toFixed(3)})`;
+    ctx.lineWidth = 1 + z * 1.6;
+    ctx.beginPath(); ctx.ellipse(cx, cy - (z - 0.5) * 36, Math.max(1, r), Math.max(0.6, r * 0.62), 0, th - len, th); ctx.stroke();
+  }
+  const core = t < TB ? clamp(crunch / 4.2) : Math.exp(-after * 1.5);
+  if (core > 0.01) {
+    const R = 30 + 200 * core, g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+    g.addColorStop(0, `rgba(255,250,235,${(A * core).toFixed(3)})`); g.addColorStop(0.25, `rgba(247,217,111,${(A * core * 0.6).toFixed(3)})`); g.addColorStop(1, 'rgba(252,98,85,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+}
+function blowupPlot(t) {
+  // ‖u‖∞ against t: climbs like 1/(T* − t), with a dashed asymptote at T*
+  const A = Math.min(eOut(prog(t, 61.0, 61.8)), 1 - eIn(prog(t, 70.5, 71)));
+  if (A <= 0) return;
+  const x0 = 1180, y0 = 1010, w = 600, h = 190;
+  ctx.save(); ctx.globalAlpha = A;
+  ctx.fillStyle = 'rgba(10,12,18,0.78)'; ctx.strokeStyle = '#262a3a'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect(x0 - 30, y0 - h - 40, w + 60, h + 80, 14); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = 'rgba(236,232,223,0.6)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(x0, y0 - h - 10); ctx.lineTo(x0, y0); ctx.lineTo(x0 + w, y0); ctx.stroke();
+  const xs = x0 + w * 0.85;
+  ctx.setLineDash([6, 8]); ctx.strokeStyle = 'rgba(252,98,85,0.8)'; ctx.beginPath(); ctx.moveTo(xs, y0); ctx.lineTo(xs, y0 - h - 10); ctx.stroke(); ctx.setLineDash([]);
+  ctx.font = '600 18px JBM, monospace'; ctx.fillStyle = '#fc6255'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText('T*', xs, y0 + 8);
+  ctx.fillStyle = '#8b90a6'; ctx.textAlign = 'right'; ctx.fillText('t', x0 + w, y0 + 8);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText('‖u‖∞', x0 + 8, y0 - h - 12);
+  const p = clamp(prog(t, 61.4, TB));
+  const pts = [];
+  for (let i = 0; i <= 300; i++) {
+    const s = i / 300 * 0.999 * p; if (s > 0.999 * p) break;
+    const v = 0.05 / (1 - s) - 0.05;
+    const yy = y0 - Math.min(h + 30, v * h * 0.9);
+    pts.push([x0 + s * w * 0.85, yy]);
+    if (yy <= y0 - h - 30) break;
+  }
+  glowLine(pts, '#fc6255', 3, 12, 1);
+  if (pts.length) { const q = pts[pts.length - 1]; dot(q[0], q[1], 5, '#fff', 3); }
+  ctx.restore();
+}
+function scene6(t) {
+  show(s6.chap, t, 59.2, 70.7);
+  show(s6.title, t, 59.0, 70.7);
+  show(s6.sub, t, 59.4, 70.7);
+  const e = show(s6.eq, t, CUES.write[2], 70.7, { rise: 0, blur: 0, fi: 0.01 });
+  if (e > 0) reveal(s6.eq, eIO(prog(t, CUES.write[2], CUES.write[2] + 1.6)));
+  show(s6.q, t, 61.4, 65.9, { fo: 0.2 });
+  show(s6.ans, t, 66.05, 70.7, { s0: 1.15, rise: 0, fi: 0.25 });
+  show(s6.facts, t, 67.0, 70.7);
+  show(s6.claim, t, 68.0, 70.7);
+  show(s6.inf, t, 66.0, 70.0, { s0: 1.6, rise: 0, fi: 0.2 });
+  if (t < 59 || t > 71) return;
+  vortex(t);
+  blowupPlot(t);
+}
+
+/* =====================================================================
+   SCENE 7 · 71–75s · 100+ problems, and the build to the drop
+   ===================================================================== */
+const s7 = {
+  chap: E('<b>§5</b> &nbsp;september 21, 2026', 960, 300, 'chapter', 'c'),
+  num: E('0', 960, 500, 'mega', 'c', { fontSize: '300px' }),
+  cap: E('long-standing open problems, claimed resolved by one internal model', 960, 700, 'h3', 'c', { fontSize: '36px' }),
+  ias: E('…and an independent advisory group on math & AI forms at the Institute for Advanced Study', 960, 780, 'small', 'c', { fontSize: '24px' }),
+};
+function scene7(t) {
+  show(s7.chap, t, 71.0, 74.8, { fo: 0.2 });
+  const o = show(s7.num, t, 71.0, 74.8, { fo: 0.2, rise: 0 });
+  if (o > 0) { const v = Math.round(100 * eOut(prog(t, 71.2, 73.4))); s7.num.innerHTML = v + (t > 73.4 ? '<span class="y">+</span>' : ''); }
+  show(s7.cap, t, 71.6, 74.8, { fo: 0.2 });
+  show(s7.ias, t, 72.4, 74.8, { fo: 0.2 });
+  if (t < 71 || t > 75) return;
+  // converging lines: the riser
+  const p = prog(t, 71, 75);
+  ctx.save();
+  for (let i = 0; i < 70; i++) {
+    const ang = i / 70 * TAU, r1 = lerp(1100, 260, eIn(p)) + hash(i) * 200, r0 = r1 + 120 + hash(i * 2) * 200;
+    ctx.strokeStyle = `rgba(247,217,111,${(0.08 + 0.3 * p).toFixed(3)})`; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(960 + Math.cos(ang) * r0, 500 + Math.sin(ang) * r0); ctx.lineTo(960 + Math.cos(ang) * r1, 500 + Math.sin(ang) * r1); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* =====================================================================
+   SCENE 8 · 75–93s · October 6, 2026: 722 manuscripts
+   ===================================================================== */
+const s8 = {
+  chap: E('<b>§6</b> &nbsp;october 6, 2026', 120, 70, 'chapter', 'tl'),
+  head: E('The largest drop yet.', 120, 150, 'h2', 'tl', { fontSize: '76px' }),
+  st: [
+    E('<b>~4,000</b><span>research problems posed</span>', 120, 330, 'stat', 'tl'),
+    E('<b class="y">722</b><span>manuscripts</span>', 590, 330, 'stat', 'tl'),
+    E('<b>372</b><span>families of results</span>', 980, 330, 'stat', 'tl'),
+    E('<b>~3 h</b><span>of thinking per result</span>', 1400, 330, 'stat', 'tl'),
+  ],
+  repo: E('all public · with Lean formalizations for many of them · <span class="y">github.com/openai/math</span>', 960, 1010, 'date', 'c', { fontSize: '22px', fontWeight: 400, color: 'var(--muted)' }),
+  zt: E('A zero-free half-plane for ' + tex('\\zeta(s)'), 120, 150, 'h2', 'tl', { fontSize: '62px' }),
+  zs: E('the “quasi-Riemann hypothesis” · claimed, under review', 120, 232, 'date', 'tl', { fontSize: '22px', fontWeight: 400, color: 'var(--muted)' }),
+  list: E(['Hodge conjecture for CM abelian varieties', 'the irrationality exponent of ' + tex('\\pi'), 'Mahler’s conjectures', 'Kaplansky’s direct-finiteness, char 2', 'isomorphism of free group factors', 'Mézard–Parisi formula for spin glasses'].map(s => `<div><em>+</em>${s}</div>`).join(''), 1010, 330, 'list', 'tl'),
+  closing: E('Now the world’s mathematicians get to check them.', 960, 540, 'h2', 'c', { fontSize: '64px' }),
+};
+const s8rows = [...s8.list.children];
+const ZEROS = [14.134725, 21.022040, 25.010858, 30.424876, 32.935062, 37.586178, 40.918719, 43.327073, 48.005151, 49.773832, 52.970321, 56.446248, 59.347044, 60.831779, 65.112544, 67.079811, 69.546402, 72.067158, 75.704691, 77.144840, 79.337375, 82.910381, 84.735493, 87.425275, 88.809111, 92.491899, 94.651344, 95.870634, 98.831194, 101.317851];
+function mosaic(t) {
+  // 722 = 38 × 19 tiles, filling in a wave from the centre
+  const A = Math.min(1, 1 - eIn(prog(t, 82.6, 83.2)));
+  if (t < 78.2 || A <= 0) return;
+  const cols = 38, rows = 19, tw = 38, th = 20, gx = 6, gy = 6;
+  const ox = 960 - (cols * (tw + gx) - gx) / 2, oy = 492;
+  ctx.save();
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const k = r * cols + c, d = Math.hypot(c - cols / 2 + 0.5, (r - rows / 2 + 0.5) * 1.6) / 22;
+    const p = eOut(prog(t, 78.3 + d * 1.6 + hash(k) * 0.35, 78.7 + d * 1.6 + hash(k) * 0.35));
+    if (p <= 0) continue;
+    const x = ox + c * (tw + gx), y = oy + r * (th + gy) + (1 - p) * 16;
+    const hue = hash(k * 3.3), spark = hash(k * 7.1 + Math.floor(t * 6)) > 0.985;
+    ctx.globalAlpha = A * p;
+    ctx.fillStyle = spark ? '#f7d96f' : hue < 0.5 ? 'rgba(88,196,221,0.55)' : hue < 0.8 ? 'rgba(92,208,179,0.45)' : 'rgba(163,138,214,0.5)';
+    ctx.fillRect(x, y, tw, th);
+    ctx.fillStyle = 'rgba(6,7,11,0.55)';
+    ctx.fillRect(x + 5, y + 5, tw * (0.4 + hash(k) * 0.45), 2); ctx.fillRect(x + 5, y + 10, tw * 0.7, 2); ctx.fillRect(x + 5, y + 15, tw * (0.3 + hash(k * 2) * 0.5), 2);
+  }
+  ctx.restore();
+}
+function zetaPlot(t) {
+  const A = Math.min(eOut(prog(t, 83.2, 84.0)), 1 - eIn(prog(t, 89.5, 90.1)));
+  if (A <= 0) return;
+  // complex plane: Re s on x, Im s on y (scrolling upward forever)
+  const L = 120, R = 960, T = 300, B = 1000;
+  const sx = s => lerp(L, R, (s + 0.4) / 2.15);
+  const scroll = (t - 83.2) * 6.5, sy = im => B - 30 - (im - scroll) * 13.5;
+  ctx.save(); ctx.globalAlpha = A;
+  ctx.beginPath(); ctx.rect(L, T, R - L, B - T); ctx.clip();
+  // critical strip
+  ctx.fillStyle = 'rgba(88,196,221,0.06)'; ctx.fillRect(sx(0), T, sx(1) - sx(0), B - T);
+  // claimed zero-free half-plane Re s > σ0
+  const s0 = 0.875, sh = eOut(prog(t, 84.2, 85.4));
+  const grd = ctx.createLinearGradient(sx(s0), 0, sx(1.3), 0); grd.addColorStop(0, 'rgba(247,217,111,0.32)'); grd.addColorStop(1, 'rgba(247,217,111,0.05)');
+  ctx.fillStyle = grd; ctx.fillRect(sx(s0), lerp(B, T, sh), R - sx(s0), B - T);
+  ctx.strokeStyle = 'rgba(247,217,111,0.95)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(sx(s0), B); ctx.lineTo(sx(s0), lerp(B, T, sh)); ctx.stroke();
+  // classical zero-free region: hugs Re s = 1, shrinking as Im s grows (schematic)
+  ctx.strokeStyle = 'rgba(131,193,103,0.8)'; ctx.lineWidth = 2; ctx.setLineDash([5, 6]); ctx.beginPath();
+  for (let py = B; py >= T; py -= 4) { const im = scroll + (B - 30 - py) / 13.5, s = 1 - 0.25 / Math.log(Math.max(0, im) + 10); py === B ? ctx.moveTo(sx(s), py) : ctx.lineTo(sx(s), py); }
+  ctx.stroke(); ctx.setLineDash([]);
+  // axes and critical line
+  ctx.strokeStyle = 'rgba(236,232,223,0.5)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(sx(0), T); ctx.lineTo(sx(0), B); ctx.stroke();
+  ctx.strokeStyle = 'rgba(236,232,223,0.3)'; ctx.beginPath(); ctx.moveTo(sx(1), T); ctx.lineTo(sx(1), B); ctx.stroke();
+  ctx.setLineDash([3, 6]); ctx.strokeStyle = 'rgba(252,98,85,0.75)'; ctx.beginPath(); ctx.moveTo(sx(0.5), T); ctx.lineTo(sx(0.5), B); ctx.stroke(); ctx.setLineDash([]);
+  for (const z of ZEROS) { const y = sy(z); if (y < T - 10 || y > B + 10) continue; dot(sx(0.5), y, 5, '#fc6255', 3); }
+  ctx.restore();
+  ctx.save(); ctx.globalAlpha = A;
+  ctx.strokeStyle = '#262a3a'; ctx.lineWidth = 1; ctx.strokeRect(L + 0.5, T + 0.5, R - L, B - T);
+  ctx.font = '600 20px JBM, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = '#8b90a6';
+  ctx.fillText('0', sx(0), B + 10); ctx.fillText('½', sx(0.5), B + 10); ctx.fillText('1', sx(1) + 8, B + 10);
+  ctx.fillStyle = '#f7d96f'; ctx.fillText('σ₀', sx(s0) - 8, B + 10);
+  ctx.textAlign = 'right'; ctx.fillStyle = '#fc6255'; ctx.fillText('ZEROS ON THE', sx(0.5) - 16, T + 20); ctx.fillText('LINE Re s = ½', sx(0.5) - 16, T + 44);
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#f7d96f'; ctx.globalAlpha = A * eOut(prog(t, 85.0, 85.6)); ctx.fillText('CLAIMED: NO ZEROS', sx(1) + 18, T + 20); ctx.fillText('FOR Re s > σ₀', sx(1) + 18, T + 44);
+  ctx.fillStyle = '#83c167'; ctx.globalAlpha = A * eOut(prog(t, 85.6, 86.2)); ctx.fillText('1899: A REGION', sx(1) + 18, T + 92); ctx.fillText('THAT NARROWS', sx(1) + 18, T + 116); ctx.fillText('TOWARD Re s = 1', sx(1) + 18, T + 140);
+  ctx.restore();
+}
+function scene8(t) {
+  show(s8.chap, t, 75.0, 92.7);
+  show(s8.head, t, 75.1, 83.0);
+  s8.st.forEach((el, i) => {
+    const a = CUES.pops[i];
+    const o = show(el, t, a, 83.0, { s0: 1.3, rise: 0, fi: 0.3 });
+    if (o > 0) {
+      const b = el.querySelector('b'), p = eOut(prog(t, a, a + 0.9));
+      if (i === 0) b.textContent = '~' + Math.round(4000 * p).toLocaleString('en-US');
+      if (i === 1) b.textContent = Math.round(722 * p);
+      if (i === 2) b.textContent = Math.round(372 * p);
+      if (i === 3) b.textContent = '~' + Math.max(1, Math.round(3 * p)) + ' h';
+    }
+  });
+  show(s8.repo, t, 79.0, 83.0);
+  show(s8.zt, t, 83.3, 89.9);
+  show(s8.zs, t, 83.6, 89.9);
+  show(s8.list, t, 83.9, 89.9, { rise: 0, blur: 0 });
+  s8rows.forEach((r, i) => { const a = CUES.pops[4 + i], p = eOut(prog(t, a, a + 0.4)); r.style.opacity = p.toFixed(3); r.style.transform = `translateX(${((1 - p) * 40).toFixed(1)}px)`; });
+  show(s8.closing, t, 90.2, 92.8, { fo: 0.4 });
+  if (t < 75 || t > 93) return;
+  mosaic(t);
+  zetaPlot(t);
+}
+
+/* =====================================================================
+   SCENE 9 · 93–108s · how far we've come
+   ===================================================================== */
+const s9 = {
+  chap: E('<b>§7</b> &nbsp;how far we’ve come', 120, 70, 'chapter', 'tl'),
+  l1: E('<span class="mono" style="color:var(--yellow);font-size:26px">2021</span>&nbsp;&nbsp; add 48 and 24.', 120, 170, 'quote', 'tl', { fontSize: '46px' }),
+  l2: E('<span class="mono" style="color:var(--yellow);font-size:26px">2026</span>&nbsp;&nbsp; take aim at the Millennium Problems.', 120, 240, 'quote', 'tl', { fontSize: '46px' }),
+  l3: E('Five years.', 960, 560, 'h1', 'c', { fontSize: '150px' }),
+  l4: E('Not every claim will survive review.<br>Understanding them is still <span class="y">human work</span>.', 960, 470, 'quote', 'c', { fontSize: '54px', textAlign: 'center' }),
+  l5: E('But the frontier has moved — <span class="y">for good</span>.', 960, 470, 'h2', 'c', { fontSize: '72px' }),
+};
+function scene9(t) {
+  show(s9.chap, t, 93.3, 107.6);
+  show(s9.l1, t, 94.0, 99.4);
+  show(s9.l2, t, 96.4, 99.4);
+  show(s9.l3, t, 99.3, 101.1, { fo: 0.4, s0: 0.92, rise: 0 });
+  show(s9.l4, t, 101.4, 104.6, { fo: 0.45 });
+  show(s9.l5, t, 104.9, 107.8, { fo: 0.5 });
+  if (t < 93 || t > 108) return;
+  // zoom out from the 2021 point to the whole climb
+  const z = eIO(prog(t, 93.0, 98.6));
+  const m0 = MS[0];
+  // scale eases geometrically while the 2021 dot glides from screen centre to its final spot, so the curve stays in view
+  const s = 9 * Math.pow(0.8 / 9, z), ax = lerp(960, 960 + (m0.x - 960) * 0.8, z), ay = lerp(560, 560 + (m0.y - 470) * 0.8, z);
+  const dim = 1 - 0.72 * eIO(prog(t, 99.2, 99.9));
+  const out = 1 - eIn(prog(t, 107.3, 108));
+  ctx.save();
+  ctx.translate(ax, ay); ctx.scale(s, s); ctx.translate(-m0.x, -m0.y);
+  drawChart(t, MS.length + 1, out * dim, 1, MS.length - 1, MS.length - 1, 1 / s);
+  // the original sum, tiny, sitting on the 2021 dot
+  ctx.globalAlpha = out * dim * clamp(1 - z * 1.2 + 0.25);
+  ctx.font = '13px KaTeX_Main, serif'; ctx.fillStyle = '#f7d96f'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText('48 + 24 = 72', m0.x, m0.y - 4);
+  ctx.restore();
+}
+
+/* =====================================================================
+   SCENE 10 · 108–114s · end card
+   ===================================================================== */
+const s10 = {
+  qed: E('∎', 960, 380, '', 'c', { fontSize: '170px', color: 'var(--yellow)', fontFamily: 'var(--serif)' }),
+  t: E('From 72 to 722.', 960, 560, 'h1', 'c', { fontSize: '104px' }),
+  s: E('an unofficial recap of OpenAI’s math milestones · 2021 – october 2026', 960, 660, 'date', 'c', { fontSize: '22px', fontWeight: 400, color: 'var(--muted)' }),
+  src: E('Sources: OpenAI announcements (May 20, Aug, Sep 8, Sep 21, Oct 6 2026); GPT-4 technical report; OpenAI o1 &amp; o3 posts; reporting by The Washington Post, The Next Web, TechCrunch, The Decoder, Understanding AI.<br>Most 2026 results are as announced by OpenAI; independent verification is ongoing.', 960, 940, 'small wrap', 'c', { width: '1500px', textAlign: 'center', fontSize: '19px', lineHeight: '1.5' }),
+};
+function scene10(t) {
+  show(s10.qed, t, 108.0, 113.6, { s0: 0.4, rise: 0, fi: 0.45, fo: 0.8 });
+  show(s10.t, t, 108.5, 113.6, { fo: 0.8 });
+  show(s10.s, t, 109.1, 113.6, { fo: 0.8 });
+  show(s10.src, t, 109.6, 113.6, { fo: 0.8 });
+}
+
+/* =====================================================================
+   frame
+   ===================================================================== */
+function render(t) {
+  // background fades between scenes so each section has its own feel
+  const gridA = t < 19 ? 0.6 : t < 41 ? 0.35 : t < 93 ? 0.75 : t < 108 ? 0.25 : 0.4;
+  const glyphA = (t > 66 && t < 75) || (t > 75 && t < 93) ? 0.5 : 1;
+  background(t, gridA, glyphA);
+  scene0(t); scene1(t); scene2(t); scene3(t); scene4(t); scene5(t); scene6(t); scene7(t); scene8(t); scene9(t); scene10(t);
+  vignette();
+  // global fade in/out
+  const fade = Math.min(prog(t, 0, 0.6), 1 - prog(t, CUES.dur - 0.8, CUES.dur));
+  if (fade < 1) { ctx.fillStyle = `rgba(0,0,0,${(1 - fade).toFixed(3)})`; ctx.fillRect(0, 0, W, H); }
+  dom.style.opacity = fade.toFixed(3);
+  const { shake, flash } = impactEnv(t);
+  const sx = Math.sin(t * 97) * 14 * shake, sy = Math.cos(t * 83) * 10 * shake;
+  cam.style.transform = `translate(${sx.toFixed(2)}px, ${sy.toFixed(2)}px)`;
+  flashEl.style.opacity = (flash * 0.38).toFixed(3);
+}
+
+window.__duration = CUES.dur;
+window.__render = render;
+const fontsReady = Promise.all([
+  document.fonts.load('22px KaTeX_Main'), document.fonts.load('italic 22px KaTeX_Main'), document.fonts.load('22px KaTeX_Math'),
+  document.fonts.load('600 22px JBM'), document.fonts.load('800 22px InterV'),
+]).then(() => document.fonts.ready);
+fontsReady.then(() => {
+  render(0);
+  window.__ready = true;
+  if (CAPTURE) return;
+  // preview: play in real time; click to pause, arrow keys seek, number keys jump by tenths
+  const fit = () => document.getElementById('stage').style.setProperty('--k', Math.min(innerWidth / W, innerHeight / H));
+  fit(); addEventListener('resize', fit);
+  let t0 = performance.now() / 1000, paused = false, tp = 0;
+  const now = () => paused ? tp : ((performance.now() / 1000 - t0) % CUES.dur);
+  addEventListener('click', () => { if (paused) { t0 = performance.now() / 1000 - tp; paused = false; } else { tp = now(); paused = true; } });
+  addEventListener('keydown', e => {
+    const cur = now(); let n = null;
+    if (e.key === 'ArrowRight') n = cur + 2; if (e.key === 'ArrowLeft') n = cur - 2;
+    if (/^[0-9]$/.test(e.key)) n = CUES.dur * (+e.key) / 10;
+    if (n !== null) { n = (n + CUES.dur) % CUES.dur; if (paused) tp = n; else t0 = performance.now() / 1000 - n; }
+  });
+  const hashT = parseFloat(location.hash.slice(1)); if (!isNaN(hashT)) t0 -= hashT;
+  (function loop() { render(now()); requestAnimationFrame(loop); })();
+});
+})();
+</script>
+</body>
+</html>
